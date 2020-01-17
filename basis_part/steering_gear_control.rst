@@ -221,23 +221,147 @@ PWM_PERIOD_COUNT是我们定义的一个宏，用来指定占空比大小，实�
 最后使用HAL_TIM_PWM_Start函数让计数器开始计数和通道输出。
 
 .. code-block:: c
-    :caption: 定时器模式配置
+    :caption: 设置定时器占空比
     :linenos:
-    void set_steering_gear_angle(uint16_t angle)
+
+    void set_steering_gear_dutyfactor(uint16_t dutyfactor)
     {
       #if 1
       {
         /* 对超过范围的占空比进行边界处理 */
-        angle = 0.5/20.0*PWM_PERIOD_COUNT > angle ? 0.5/20.0*PWM_PERIOD_COUNT : angle;
-        angle = 2.5/20.0*PWM_PERIOD_COUNT < angle ? 2.5/20.0*PWM_PERIOD_COUNT : angle;
+        dutyfactor = 0.5/20.0*PWM_PERIOD_COUNT > dutyfactor ? 0.5/20.0*PWM_PERIOD_COUNT : dutyfactor;
+        dutyfactor = 2.5/20.0*PWM_PERIOD_COUNT < dutyfactor ? 2.5/20.0*PWM_PERIOD_COUNT : dutyfactor;
       }
       #endif
       
-      TIM2_SetPWM_pulse(PWM_CHANNEL_1, angle);
+      TIM2_SetPWM_pulse(PWM_CHANNEL_1, dutyfactor);
     }
 
-封装一个多久控制函数，接收一个参数用于设置PWM的占空比，并对输入的参数进行合法性检查，将脉冲宽度限制
+封装一个舵机占空比设置函数，接收一个参数用于设置PWM的占空比，并对输入的参数进行合法性检查，将脉冲宽度限制
 在0.5~2.5ms之间。
+
+.. code-block:: c
+    :caption: 设置舵机角度
+    :linenos:
+
+    void set_steering_gear_angle(uint16_t angle_temp)
+    {
+      angle_temp = (0.5 + angle_temp / 180.0 * (2.5 - 0.5)) / 20.0 * PWM_PERIOD_COUNT;    // 计算角度对应的占空比
+      
+      set_steering_gear_dutyfactor(angle_temp);    // 设置占空比
+    }
+
+该函数用于设置舵机角度，传入角度值然后计算占空比，最后条用set_steering_gear_dutyfactor()来设置占空比。
+
+.. code-block:: c
+    :caption: 串口控制
+    :linenos:
+
+    void deal_serial_data(void)
+    {
+      int angle_temp=0;
+      
+      //接收到正确的指令才为1
+      char okCmd = 0;
+
+      //检查是否接收到指令
+      if(receive_cmd == 1)
+      {
+        if(UART_RxBuffer[0] == 'a' || UART_RxBuffer[0] == 'A')
+        {
+          //设置速度
+          if(UART_RxBuffer[1] == ' ')
+          {
+            angle_temp = atoi((char const *)UART_RxBuffer+2);
+            if(angle_temp>=0 && angle_temp <= 180)
+            {
+              printf("\n\r角度: %d\n\r", angle_temp);
+              angle_temp = (0.5 + angle_temp / 180.0 * (2.5 - 0.5)) / 20.0 * PWM_PERIOD_COUNT;
+              ChannelPulse = angle_temp;    // 同步按键控制的比较值
+              set_steering_gear_angle(angle_temp);
+
+              okCmd = 1;
+            }
+          }
+        }
+        else if(UART_RxBuffer[0] == '?')
+        {
+          //打印帮助命令
+          show_help();
+          okCmd = 1;
+        }
+        //如果指令有无则打印帮助命令
+        if(okCmd != 1)
+        {
+          printf("\n\r 输入有误，请重新输入...\n\r");
+          show_help();
+        }
+
+        //清空串口接收缓冲数组
+        receive_cmd = 0;
+        uart_FlushRxBuffer();
+
+      }
+    }
+
+以上为串口接收处理函数，接收正确的指令后将字符串计算出正确的角度值，判断角度值是否是在有效范围内，
+同步按键调节的占空比防止按钮调节时转动范围过大。
+
+.. code-block:: c
+    :caption: main函数
+    :linenos:
+
+    int main(void) 
+    {
+      /* HAL 库初始化 */
+      HAL_Init();
+      
+      /* 初始化系统时钟为168MHz */
+      SystemClock_Config();
+      
+      /* 初始化按键GPIO */
+      Key_GPIO_Config();
+      
+      /* 初始化串口 */
+      DEBUG_USART_Config();
+
+      /* 通用定时器初始化并配置PWM输出功能 */
+      TIMx_Configuration();
+      
+      printf("野火舵机控制实验\r\n");
+
+      show_help();
+      
+      while(1)
+      {
+        /* 处理数据 */
+        if (Key_Scan(KEY1_GPIO_PORT, KEY1_PIN) == KEY_ON)
+        {
+          ChannelPulse -= 10;    // 减少占空比
+          
+          ChannelPulse = 0.5/20.0*PWM_PERIOD_COUNT > ChannelPulse ? 0.5/20.0*PWM_PERIOD_COUNT : ChannelPulse;    // 检查占空比的合法性
+          
+          set_steering_gear_dutyfactor(ChannelPulse);    // 设置占空比
+        }
+        
+        /* 处理数据 */
+        if (Key_Scan(KEY2_GPIO_PORT, KEY2_PIN) == KEY_ON)
+        {
+          ChannelPulse += 10;    // 增加占空比
+          
+          ChannelPulse = (2.5/20.0*PWM_PERIOD_COUNT) < ChannelPulse ? (2.5/20.0*PWM_PERIOD_COUNT) : ChannelPulse;    // 检查占空比的合法性
+          
+          set_steering_gear_dutyfactor(ChannelPulse);    // 设置占空比
+        }
+        
+        /* 串口处理 */
+        deal_serial_data();
+      }
+    }
+
+初始化串口、定时器输出PWM和按键等外设，最后在循环里面处理按键和串口接收的数据。当KEY1按下后，
+减少占空比，并检查占空比是否在有效范围内，然后设置占空比，当KEY2按下后，增加占空比，并检查占空比
+是否在有效范围内，然后设置占空比。最后调用deal_serial_data()来处理串口接收的函数。
 
 下载验证
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -258,3 +382,5 @@ PWM_PERIOD_COUNT是我们定义的一个宏，用来指定占空比大小，实�
 
 经过验证可以知道我们的PWM脉冲宽度是在0.5~2.5ms之间变化。这正是我们想要的结果，这说明我们的代码是
 正确的，这时我们就可以接上舵机来测试了。
+
+通过按键KEY1和KEY2来调整舵机角度，或者通过串口来控制舵机角度。
