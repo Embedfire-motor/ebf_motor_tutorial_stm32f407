@@ -263,7 +263,7 @@ DAC 章节讲解即可，这里就利用基本定时器实现简单的定时功�
 
 接下来设置定时器周期数为 4999，即计数 5000 次生成事件。设置定时器预分频器为
 (8400-1)，基本定时器使能内部时钟，频率为 84MHz，经过预分频器后得到 10KHz 的频率。
-然后就是调用 TIM_ HAL_TIM_Base_Init 函数完成定时器配置。
+然后就是调用 TIM_HAL_TIM_Base_Init 函数完成定时器配置。
 
 最后使用 HAL_TIM_Base_Start_IT 函数开启定时器和更新中断。
 
@@ -717,6 +717,7 @@ PWM1与PWM2模式的区别
 
 .. image:: ../media/doc1015.png
    :align: center
+
 PWM1模式的边沿对齐波形
 
 在边沿对齐模式下，计数器CNT只工作在一种模式，递增或者递减模式。这里我们以CNT工作在递增模式为例，在中，ARR=8，CCR=4，CNT从0开始计数，
@@ -890,7 +891,8 @@ TIM_BreakDeadTimeConfigTypeDef
 
 (9)  Break2Polarity：断路2输入通道BRK2极性选择，可选高电平有效或低电平有效。它设定BDTR寄存器BK2P位的值。
 
-(10) Break2Filter：断路2输入滤波器，定义BRK2 输入的采样频率和适用于 BRK2的数字滤波器带宽。它设定BDTR寄存器BK2F[3:0]位的值。
+(10) Break2Filter：断路2输入滤波器，定义BRK2 输入的采样频率和适用于 BRK2的数字滤波器带宽。
+     它设定BDTR寄存器BK2F[3:0]位的值。
 
 (11) AutomaticOutput：自动输出使能，可选使能或禁止，它设定BDTR寄存器AOE位的值。
 
