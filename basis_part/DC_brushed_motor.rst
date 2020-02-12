@@ -3,19 +3,23 @@
 直流有刷电机
 ==========================================
 
-直流有刷电机具有控制简单、成本低的特点，但在能够满足必要的性能，低成本和足够的可靠性的前提下
-，直流有刷电机是一个很好的选择。如便宜的玩具以及一些功能简单的应用场合，如汽车的电动座椅等。
-在使用MOSFET/IGBT开关就可以对电机进行控制，所以整个电机控制系统相当便宜。就可以让电极提供足够好的性能。
-此外，基本的BDC电机在电源和电机之间只需要两根电缆，这样就可以节省配线和连接器所需的空间，
-并降低电缆和连接器的成本。
+直流有刷电机（Brushed DC motor）具有结构简单、易于控制、成本低等特点，
+在一些功能简单的应用场合，或者说在能够满足必要的性能、低成本和足够的可靠性的前提下，
+直流有刷电机往往是一个很好的选择。例如便宜的电子玩具、各种风扇和汽车的电动座椅等。
+基本的直流有刷电机在电源和电机之间只需要两根电缆，这样就可以节省配线和连接器所需的空间，
+并降低电缆和连接器的成本。此外，还可以使用MOSFET/IGBT开关对直流有刷电机进行控制，
+给电机提供足够好的性能的同时，整个电机控制系统也会比较便宜。
 
-直流电机转速快，扭矩小，所以用减速来降低转速，提高扭矩，已就是直流减速电机，实物图见下图，
-即齿轮减速电机，是在普通直流电机的基础上，加上配套齿轮减速箱。齿轮箱不同的减速比可以提供不同
-的转速和力矩。在实际使用中减速电机使用的最为广泛，所以本章节将主要介绍直流有刷减速电机。
+直流有刷电机转速快、扭矩小，在某些应用中可能无法满足要求。这种情况就需要做一些改进来降低转速，并提高力矩。
+直流减速电机就是这样一种电机，实物图如下图所示。
 
 .. image:: ../media/dc_gear_motor.jpg
    :align: center
    :alt: 减速电机实物图
+
+这种电机通常也叫齿轮减速电机，它是在普通直流有刷电机的基础上增加了一套齿轮减速箱，
+用来提供更大的力矩和更低的转速。齿轮减速箱可以通过配置不同的减速比，提供各种不同的转速和力矩。
+在实际使用中减速电机使用的最为广泛，所以本章节将主要介绍直流有刷减速电机。
 
 本章节将介绍直流有刷电机的工作原理、电机参数和驱动电路，最后通过实验来实现电机远动的简单控制。
 
@@ -23,21 +27,23 @@
 直流有刷电机工作原理
 ------------------------------------------
 
-在分析原理前我们先复习一下左手定则，如下图所示。
+在分析原理前我们先复习一下左手定则。
+
+左手定则是判断通电导体处于磁场中时，所受安培力 F (或运动)的方向、
+磁感应强度B的方向以及通电导体棒的电流 I 三者方向之间的关系的定律。
+通过左手定则可以知道通电导体在磁场中的受力方向，如下图所示。
 
 .. image:: ../media/left-hand_rule.jpg
    :align: center
    :alt: 左手定则
 
-左手定则是判断通电导体处于磁场中时，所受安培力 F (或运动)的方向、磁感应强度B的方向以及通电导
-体棒的电流I三者方向之间的关系的定律。通过左手定则可以知道通电导体在磁场中的受力方向。判断方法是：
-伸开左手，使拇指与其他四指垂直且在一个平面内，让磁感线从手心流入，四指指向电流方向，
-大拇指指向的就是安培力方向（即导体受力方向）。
-   
+判断方法是：伸开左手，使拇指与其他四指垂直且在一个平面内，让磁感线从手心流入，
+四指指向电流方向，大拇指指向的就是安培力方向（即导体受力方向）。
+
 有刷直流电机在其电枢上绕有大量的线圈，所产生强大的磁场与外部磁场相互作用产生旋转运动。
 磁极方向的跳转是通过移动固定位置的接触点来完成的，该接触点在电机转子上与电触点相对连接。
-这种固定触点通常由石墨制成，与铜或其他金属相比，在大电流短路或断路/起动过程中石墨不会
-熔断或者与旋转触点焊接到一起，并且这个触点通常是弹簧承载的，所以能够获得持续的接触压力。
+这种固定触点通常由石墨制成，与铜或其他金属相比，在大电流短路或断路/起动过程中石墨不会熔断或者与旋转触点焊接到一起，
+并且这个触点通常是弹簧承载的，所以能够获得持续的接触压力。
 在这里我们将通过其中一组线圈和一对磁极来分析其工作原理，如下图所示。
 
 .. image:: ../media/motor_working_principle.png
@@ -45,8 +51,8 @@
    :alt: 有刷电机工作原理图
 
 图中C和D两片半圆周的铜片构成换向器，两个弹性铜片靠在换向器两侧的A和B是电刷，电源通过电刷向导线框供电，
-线框中就有电流通过，在线框两侧放一对磁极N和S，形成磁场，磁力线由N到S。线框通有电流时，两侧导线就
-会受到磁场的作用力，方向依左手定则判断，红色和蓝色线框部分分别会受到力F\ :sub:`1`\和F\ :sub:`2`\，
+线框中就有电流通过，在线框两侧放一对磁极N和S，形成磁场，磁力线由N到S。线框通有电流时，
+两侧导线就会受到磁场的作用力，方向依左手定则判断，红色和蓝色线框部分分别会受到力F\ :sub:`1`\和F\ :sub:`2`\，
 这两个力的方向相反，这使得线框会转动，当线框转过90°时，换向器改变了线框电流的方向，产生的安培力方向不变，
 于是导线框会连续旋转下去，这就是直流电动机的工作原理。
 
@@ -54,8 +60,7 @@
 ------------------------------------------
 
 - 空载转速：正常工作电压下电机不带任何负载的转速（单位为r/min（转/分））。
-  空载转速由于没有反向力矩，所以输出功率和堵转情况不一样，该参数只是提供一个电机在规定
-  电压下最大转速的作用。
+  空载转速由于没有反向力矩，所以输出功率和堵转情况不一样，该参数只是提供一个电机在规定电压下最大转速的作用。
 - 空载电流：正常工作电压下电机不带任何负载的工作电流（单位mA（毫安））。越好的电机，在空载时，该值越小。
 - 负载转速：正常工作电压下电机带负载的转速。
 - 负载力矩：正常工作电压下电机带负载的力矩 （N·m（牛米））。
@@ -73,9 +78,10 @@
 直流有刷电机驱动设计与分析
 ------------------------------------------
 
-我们先来想一个问题，假设你手里现在有一个直流电机和一节电池，当你把电机的两根电源
-线和电池的电源连接在一起时，这时电机可以正常旋转，当想要电机反向旋转时，只需要把两根电
-源线交换一下就可以了。但是当我们实际应用中如果也想实现正转和反转的控制也需要交换电源线吗？
+我们先来想一个问题，假设你手里现在有一个直流电机和一节电池，
+当你把电机的两根电源线和电池的电源连接在一起时，这时电机可以正常旋转，
+当想要电机反向旋转时，只需要把两根电源线交换一下就可以了。
+但是当我们实际应用中如果也想实现正转和反转的控制也需要交换电源线吗？
 显然这样的方法是不可行的。这时候我们可以用一个叫做“H桥电路”来驱动电机。
 
 控制电路原理设计与分析
@@ -104,11 +110,11 @@
 上图中，当Q\ :sub:`3`\和Q\ :sub:`2`\导通时，电流将经过Q\ :sub:`3`\从右往左流过电机，
 在经过Q\ :sub:`2`\流到电源负极，这时图中电机可以逆时针转动。
 
-当Q\ :sub:`1`\和\ :sub:`2`\同时导通时，电流将从电源先后经过Q\ :sub:`1`\和Q\ :sub:`2`\，
-然后直接流到电源负极，在这个回路中除了三极管以外就没有其他负载，这时电流可能会达到最大值，此时可能会烧毁
-三极管，同理，当Q\ :sub:`3`\和\ :sub:`4`\同时导通时，也会出现相同的状况。这样的情况肯定是不能发生的，
-但是我们写程序又是三分写代码七分在调试，这就难免会有写错代码将同一测得三极管导通的情况，为此我们就需要
-从硬件上来避免这个问题。下面电路图是改进后的驱动电路图。
+当Q\ :sub:`1`\和\ :sub:`2`\同时导通时，电流将从电源先后经过Q\ :sub:`1`\和Q\ :sub:`2`\，然后直接流到电源负极，
+在这个回路中除了三极管以外就没有其他负载，这时电流可能会达到最大值，此时可能会烧毁三极管，
+同理，当Q\ :sub:`3`\和\ :sub:`4`\同时导通时，也会出现相同的状况。这样的情况肯定是不能发生的，
+但是我们写程序又是三分写代码七分在调试，这就难免会有写错代码将同一测得三极管导通的情况，
+为此我们就需要从硬件上来避免这个问题。下面电路图是改进后的驱动电路图。
 
 .. image:: ../media/H-bridge_circuit_Improve.png
    :align: center
@@ -125,9 +131,9 @@
 速度控制原理
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-脉冲宽度调制（Pulse width modulation，PWM）信号，即PWM是一种按一定的规则对
-各脉冲的宽度进行调制，既可改变电路输出电压的大小，也可改变输出频率。PWM通过一定的频率
-来改变通电和断电的时间，从而控制电路输出功率，在电机控制上：当“通电”时间相对于“断电”时间长时，
+脉冲宽度调制（Pulse width modulation，PWM）信号，即PWM是一种按一定的规则对各脉冲的宽度进行调制，
+既可改变电路输出电压的大小，也可改变输出频率。PWM通过一定的频率来改变通电和断电的时间，
+从而控制电路输出功率，在电机控制上：当“通电”时间相对于“断电”时间长时，
 电机旋转速度快，当“通电”时间相对于“断电时间”短时，电机旋转速度慢。其中，
 通电时间/(通断时间+断电时间)=占空比，即，高电平占整个周期的百分比，如下图所示：
 
@@ -151,9 +157,9 @@ D(占空比) = T\ :sub:`1`\/T*100%
 软件设计
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-这里只讲解核心的部分代码，有些变量的设置，头文件的包含等并没有涉及到，完整的代码请
-参考本章配套的工程。我们创建了四个文件：bsp_general_tim.c、bsp_general_tim.h、
-bsp_motor_control.c和bsp_motor_control.h文件用来存定时器驱动和电机控制程序及相关宏定义
+这里只讲解核心的部分代码，有些变量的设置，头文件的包含等并没有涉及到，完整的代码请参考本章配套的工程。
+我们创建了四个文件：bsp_general_tim.c、bsp_general_tim.h、bsp_motor_control.c和bsp_motor_control.h
+文件用来存定时器驱动和电机控制程序及相关宏定义。
 
 编程要点
 """""""""""""""""
@@ -178,7 +184,7 @@ bsp_motor_control.c和bsp_motor_control.h文件用来存定时器驱动和电机
     #define PWM_CHANNEL_1                       TIM_CHANNEL_1
     #define PWM_CHANNEL_2                       TIM_CHANNEL_2
 
-    /* 累计 TIM_Period个后产生一个更新或者中断*/		
+    /* 累计 TIM_Period个后产生一个更新或者中断*/
     /* 当定时器从0计数到PWM_PERIOD_COUNT，即为PWM_PERIOD_COUNT+1次，为一个定时周期 */
     #define PWM_PERIOD_COUNT     5599
 
@@ -207,31 +213,31 @@ bsp_motor_control.c和bsp_motor_control.h文件用来存定时器驱动和电机
    :caption: 定时器复用功能引脚初始化
    :linenos:
 
-    static void TIMx_GPIO_Config(void) 
+    static void TIMx_GPIO_Config(void)
     {
       GPIO_InitTypeDef GPIO_InitStruct;
-      
+
       /* 定时器通道功能引脚端口时钟使能 */
-      
+
       __HAL_RCC_GPIOA_CLK_ENABLE();
       __HAL_RCC_GPIOB_CLK_ENABLE();
-      
+
       /* 定时器通道1功能引脚IO初始化 */
       /*设置输出类型*/
       GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-      /*设置引脚速率 */ 
+      /*设置引脚速率 */
       GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
       /*设置复用*/
       GPIO_InitStruct.Alternate = GENERAL_TIM_GPIO_AF;
-      
-      /*选择要控制的GPIO引脚*/	
+
+      /*选择要控制的GPIO引脚*/
       GPIO_InitStruct.Pin = GENERAL_TIM_CH1_PIN;
       /*调用库函数，使用上面配置的GPIO_InitStructure初始化GPIO*/
       HAL_GPIO_Init(GENERAL_TIM_CH1_GPIO_PORT, &GPIO_InitStruct);
 
-      GPIO_InitStruct.Pin = GENERAL_TIM_CH2_PIN;	
+      GPIO_InitStruct.Pin = GENERAL_TIM_CH2_PIN;
       HAL_GPIO_Init(GENERAL_TIM_CH2_GPIO_PORT, &GPIO_InitStruct);
-      
+
     }
 
 定时器通道引脚使用之前必须设定相关参数，这选择复用功能，并指定到对应的定时器。
@@ -244,38 +250,38 @@ bsp_motor_control.c和bsp_motor_control.h文件用来存定时器驱动和电机
     TIM_HandleTypeDef  TIM_TimeBaseStructure;
     static void TIM_PWMOUTPUT_Config(void)
     {
-      TIM_OC_InitTypeDef  TIM_OCInitStructure;  
-      
+      TIM_OC_InitTypeDef  TIM_OCInitStructure;
+
       /*使能定时器*/
       GENERAL_TIM_CLK_ENABLE();
-      
+
       TIM_TimeBaseStructure.Instance = GENERAL_TIM;
-      /* 累计 TIM_Period个后产生一个更新或者中断*/		
+      /* 累计 TIM_Period个后产生一个更新或者中断*/
       //当定时器从0计数到PWM_PERIOD_COUNT，即为PWM_PERIOD_COUNT+1次，为一个定时周期
       TIM_TimeBaseStructure.Init.Period = PWM_PERIOD_COUNT;
-      // 通用控制定时器时钟源TIMxCLK = HCLK/2=84MHz 
+      // 通用控制定时器时钟源TIMxCLK = HCLK/2=84MHz
       // 设定定时器频率为=TIMxCLK/(PWM_PRESCALER_COUNT+1)
-      TIM_TimeBaseStructure.Init.Prescaler = PWM_PRESCALER_COUNT;	
-      
+      TIM_TimeBaseStructure.Init.Prescaler = PWM_PRESCALER_COUNT;
+
       /*计数方式*/
       TIM_TimeBaseStructure.Init.CounterMode = TIM_COUNTERMODE_UP;
       /*采样时钟分频*/
       TIM_TimeBaseStructure.Init.ClockDivision=TIM_CLOCKDIVISION_DIV1;
       /*初始化定时器*/
       HAL_TIM_Base_Init(&TIM_TimeBaseStructure);
-      
+
       /*PWM模式配置*/
       TIM_OCInitStructure.OCMode = TIM_OCMODE_PWM1;//配置为PWM模式1
       TIM_OCInitStructure.Pulse = PWM_PERIOD_COUNT/2;//默认占空比为50%
       TIM_OCInitStructure.OCFastMode = TIM_OCFAST_DISABLE;
       /*当定时器计数值小于CCR1_Val时为高电平*/
-      TIM_OCInitStructure.OCPolarity = TIM_OCPOLARITY_HIGH;	
-      
+      TIM_OCInitStructure.OCPolarity = TIM_OCPOLARITY_HIGH;
+
       /*配置PWM通道*/
       HAL_TIM_PWM_ConfigChannel(&TIM_TimeBaseStructure, &TIM_OCInitStructure, PWM_CHANNEL_1);
       /*开始输出PWM*/
       HAL_TIM_PWM_Start(&TIM_TimeBaseStructure,PWM_CHANNEL_1);
-      
+
       /*配置脉宽*/
       TIM_OCInitStructure.Pulse = PWM_PERIOD_COUNT/2;//默认占空比为50%
       /*配置PWM通道*/
@@ -284,8 +290,8 @@ bsp_motor_control.c和bsp_motor_control.h文件用来存定时器驱动和电机
       HAL_TIM_PWM_Start(&TIM_TimeBaseStructure,PWM_CHANNEL_2);
     }
 
-首先定义两个定时器初始化结构体，定时器模式配置函数主要就是对这两个结构体的成员进行初始化，然后通过相
-应的初始化函数把这些参数写入定时器的寄存器中。有关结构体的成员介绍请参考定时器详解章节。
+首先定义两个定时器初始化结构体，定时器模式配置函数主要就是对这两个结构体的成员进行初始化，
+然后通过相应的初始化函数把这些参数写入定时器的寄存器中。有关结构体的成员介绍请参考定时器详解章节。
 
 不同的定时器可能对应不同的APB总线，在使能定时器时钟是必须特别注意。通用控制定时器属于APB1，
 定时器内部时钟是84MHz。
@@ -294,8 +300,8 @@ bsp_motor_control.c和bsp_motor_control.h文件用来存定时器驱动和电机
 因为我们使用的是内部时钟，所以外部时钟采样分频成员不需要设置，重复计数器我们没用到，也不需要设置。
 
 在输出比较结构体中，设置输出模式为PWM1模式，通道输出高电平有效，设置脉宽为ChannelPulse，
-ChannelPulse是我们定义的一个无符号16位整形的全局变量，用来指定占空比大小，实际上脉宽就是设定比较寄
-存器CCR的值，用于跟计数器CNT的值比较。
+ChannelPulse是我们定义的一个无符号16位整形的全局变量，用来指定占空比大小，
+实际上脉宽就是设定比较寄存器CCR的值，用于跟计数器CNT的值比较。
 
 最后使用HAL_TIM_PWM_Start函数让计数器开始计数和通道输出。
 
@@ -310,8 +316,8 @@ ChannelPulse是我们定义的一个无符号16位整形的全局变量，用来
       MOTOR_REV,
     }motor_dir_t;
 
-在这里枚举了两个变量，用于控制电机的正转与反转。**注意**：在这里并不规定什么方向是正转与反转，这个
-是你自己定义的。
+在这里枚举了两个变量，用于控制电机的正转与反转。**注意**：在这里并不规定什么方向是正转与反转，
+这个是你自己定义的。
 
 .. code-block:: c
    :caption: 变量定义
@@ -326,7 +332,7 @@ ChannelPulse是我们定义的一个无符号16位整形的全局变量，用来
 .. code-block:: c
    :caption: 定时器到电机控制的宏接口
    :linenos:
-   
+
     /* 设置速度（占空比） */
     #define SET_FWD_COMPAER(ChannelPulse)     TIM2_SetPWM_pulse(PWM_CHANNEL_1,ChannelPulse)    // 设置比较寄存器的值
     #define SET_REV_COMPAER(ChannelPulse)     TIM2_SetPWM_pulse(PWM_CHANNEL_2,ChannelPulse)    // 设置比较寄存器的值
@@ -348,7 +354,7 @@ ChannelPulse是我们定义的一个无符号16位整形的全局变量，用来
     void set_motor_speed(uint16_t v)
     {
       dutyfactor = v;
-      
+
       if (direction == MOTOR_FWD)
       {
         SET_FWD_COMPAER(dutyfactor);     // 设置速度
@@ -368,7 +374,7 @@ ChannelPulse是我们定义的一个无符号16位整形的全局变量，用来
     void set_motor_direction(motor_dir_t dir)
     {
       direction = dir;
-      
+
       if (direction == MOTOR_FWD)
       {
         SET_FWD_COMPAER(dutyfactor);     // 设置速度
@@ -387,23 +393,23 @@ ChannelPulse是我们定义的一个无符号16位整形的全局变量，用来
    :caption: main
    :linenos:
 
-    int main(void) 
+    int main(void)
     {
       __IO uint16_t ChannelPulse = 0;
       uint8_t i = 0;
-      
+
       /* 初始化系统时钟为168MHz */
       SystemClock_Config();
-      
+
       /* 初始化按键GPIO */
       Key_GPIO_Config();
 
       /* 通用定时器初始化并配置PWM输出功能 */
       TIMx_Configuration();
-      
+
       TIM2_SetPWM_pulse(PWM_CHANNEL_1,0);
       TIM2_SetPWM_pulse(PWM_CHANNEL_2,0);
-      
+
       while(1)
       {
         /* 扫描KEY1 */
@@ -411,13 +417,13 @@ ChannelPulse是我们定义的一个无符号16位整形的全局变量，用来
         {
           /* 增大占空比 */
           ChannelPulse+=500;
-          
+
           if(ChannelPulse>PWM_PERIOD_COUNT)
             ChannelPulse=PWM_PERIOD_COUNT;
-          
+
           set_motor_speed(ChannelPulse);
         }
-        
+
         /* 扫描KEY2 */
         if( Key_Scan(KEY2_GPIO_PORT,KEY2_PIN) == KEY_ON  )
         {
