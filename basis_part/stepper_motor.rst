@@ -330,21 +330,269 @@ DC12V~48V,适合外径为42mm、 57mm、86mm系列，驱动电流在5A以下的�
 步进电机基础旋转控制
 ------------------------------------
 
-在本章前几个小节对步进电机的工作原理、特点以及驱动器的进行了详细的讲解，本小节将对最基本的控制方法进行例举和讲解；
-
-
-
+在本章前几个小节对步进电机的工作原理、特点以及驱动器的进行了详细的讲解，
+本小节将对最基本的控制方法进行例举和讲解；
 
 
 硬件设计
-^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+介绍步进电机的电路与接线方法
 
 软件设计
-^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+这里只讲解核心的部分代码，有些变量的设置，头文件的包含等并没有涉及到，完整的代码请参考本章配套的工程。
+对于步进电机的基础控制部分，共使用了四种方式进行控制，层层递巩固基础。分别为：使用GPIO延时模拟脉冲控制、
+使用GPIO中断模拟脉冲控制、使用PWM比较输出和使用PWM控制匀速旋转。
+
+
+第一种方式：使用GPIO延时模拟脉冲控制
+""""""""""""""""""""""""""""""""""""""""
+
+**编程要点**
+
+(1) 通用GPIO配置
+
+(2) GPIO结构体GPIO_InitTypeDef配置
+
+(3) 封装stepper_turn()函数用于控制步进电机旋转
+
+(4) 在main函数中编写按键控制步进电机旋转的代码
+
+.. code-block:: c
+    :caption: 功能引脚相关宏定义
+    :linenos:
+
+    //引脚定义
+    /*******************************************************/
+    //Motor 方向 
+    #define MOTOR_DIR_PIN                  	GPIO_PIN_1   
+    #define MOTOR_DIR_GPIO_PORT            	GPIOE                    
+    #define MOTOR_DIR_GPIO_CLK_ENABLE()   	__HAL_RCC_GPIOE_CLK_ENABLE()
+ 
+    //Motor 使能 
+    #define MOTOR_EN_PIN                  	GPIO_PIN_0
+    #define MOTOR_EN_GPIO_PORT            	GPIOE                       
+    #define MOTOR_EN_GPIO_CLK_ENABLE()    	__HAL_RCC_GPIOE_CLK_ENABLE()
+ 
+    //Motor 脉冲
+ 
+    #define MOTOR_PUL_PIN                  	GPIO_PIN_15            
+    #define MOTOR_PUL_GPIO_PORT            	GPIOA
+    #define MOTOR_PUL_GPIO_CLK_ENABLE()   	__HAL_RCC_GPIOA_CLK_ENABLE()
+ 
+    /************************************************************/
+    #define HIGH 1	//高电平
+    #define LOW 0		//低电平
+ 
+    #define ON 1	//开
+    #define OFF 0		//关
+ 
+    #define CLOCKWISE 			1//顺时针
+    #define ANTI_CLOCKWISE	0//逆时针
+ 
+ 
+    //控制使能引脚
+    /* 带参宏，可以像内联函数一样使用 */
+    #define MOTOR_EN(x)					HAL_GPIO_WritePin(MOTOR_EN_GPIO_PORT,MOTOR_EN_PIN,x)
+    #define MOTOR_PLU(x)				HAL_GPIO_WritePin(MOTOR_PUL_GPIO_PORT,MOTOR_PUL_PIN,x)
+    #define MOTOR_DIR(x)				HAL_GPIO_WritePin(MOTOR_DIR_GPIO_PORT,MOTOR_DIR_PIN,x)
+
+使用宏定义非常方便程序升级、移植。如果使用不同的GPIO，修改这些宏即可。
+
+**步进电机引脚初始化**
+
+.. code-block:: c
+    :caption: 步进电机引脚初始化
+    :linenos:
+    
+    /**
+      * @brief  引脚初始化
+      * @retval 无
+      */
+    void stepper_Init()
+    {
+       /*定义一个GPIO_InitTypeDef类型的结构体*/
+       GPIO_InitTypeDef  GPIO_InitStruct;
+
+       /*开启Motor相关的GPIO外设时钟*/
+       MOTOR_DIR_GPIO_CLK_ENABLE();
+       MOTOR_PUL_GPIO_CLK_ENABLE();
+       MOTOR_EN_GPIO_CLK_ENABLE();
+
+       /*选择要控制的GPIO引脚*/															   
+       GPIO_InitStruct.Pin = MOTOR_DIR_PIN;	
+
+       /*设置引脚的输出类型为推挽输出*/
+       GPIO_InitStruct.Mode  = GPIO_MODE_OUTPUT_OD;  
+
+       GPIO_InitStruct.Pull =GPIO_PULLUP;// GPIO_PULLDOWN  GPIO_PULLUP
+
+       /*设置引脚速率为高速 */   
+       GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+
+       /*Motor 方向引脚 初始化*/
+       HAL_GPIO_Init(MOTOR_DIR_GPIO_PORT, &GPIO_InitStruct);	
+
+       /*Motor 脉冲引脚 初始化*/
+       GPIO_InitStruct.Pin = MOTOR_PUL_PIN;	
+       HAL_GPIO_Init(MOTOR_PUL_GPIO_PORT, &GPIO_InitStruct);	
+
+       /*Motor 使能引脚 初始化*/
+       GPIO_InitStruct.Pin = MOTOR_EN_PIN;	
+       HAL_GPIO_Init(MOTOR_EN_GPIO_PORT, &GPIO_InitStruct);	
+
+       /*关掉使能*/
+       MOTOR_EN(OFF);
+
+    }
+   
+步进电机引脚使用必须选择相应的模式和设置对应的参数，使用GPIO之前都必须开启相应端口时钟。
+初始化结束后可以先将步进电机驱动器的使能先关掉，需要旋转的时候，再将其打开即可。
+
+**封装步进电机旋转函数**
+
+由于脉冲为模拟产生的所以必须使用模拟的方式来产生所需的特定脉冲
+
+.. code-block:: c
+    :caption: 步进电机旋转函数
+    :linenos:
+
+    /**
+    * @brief  步进电机旋转
+    * @param  tim					方波周期 单位MS	周期越短频率越高，转速越快 细分为1时最少10ms
+    * @param  angle				需要转动的角度值
+    * @param  dir				选择正反转(取值范围：0,1)	
+    * @param  subdivide	 	细分值
+    *	@note 	无
+    * @retval 无
+    */
+    void stepper_turn(int tim,float angle,float subdivide,uint8_t dir)	
+    {
+      int n,i;
+      /*根据细分数求得步距角被分成多少个方波*/
+      n=(int)(angle/(1.8/subdivide));
+      if(dir==CLOCKWISE)	//顺时针
+      {
+         MOTOR_DIR(CLOCKWISE);
+      }
+      else if(dir==ANTI_CLOCKWISE)//逆时针
+      {
+         MOTOR_DIR(ANTI_CLOCKWISE);
+      }
+      /*开使能*/
+      MOTOR_EN(ON);
+      /*模拟方波*/
+      for(i=0;i<n;i++)
+      {		
+         MOTOR_PLU(HIGH);
+         delay_us(tim/2);
+         MOTOR_PLU(LOW);
+         delay_us(tim/2);
+      }
+      /*关使能*/
+      MOTOR_EN(OFF);
+    }
+
+此函数封装的功能为步进电机选装特定的角度，stepper_turn()函数共四个参数，这四个参数几乎是决定了步进电机的旋转的所有特性
+
+- tim: tim用于控制脉冲的产生周期，周期越短频率越高，速度也就越快
+- angle:angle用于控制步进电机旋转的角度，如果需要旋转一周，输入360即可
+- subdivide:subdivide用于控制软件上的细分数，这个细分参数必须与硬件的细分参数保持一致
+- dir:dir用于控制方向,dir为1时顺时针方向旋转,dir为0时逆时针方向旋转
+
+在函数中 **n=(int)(angle/(1.8/subdivide));** 根据函数传入的角度参数和步进电机的步角1.8°，
+就可以算出在细分参数为1的情况下需要模拟的脉冲数，以此类推，
+细分数为2、4、8、16时代入公式计算即可。
+
+**主函数**
+
+.. code-block:: c
+    :caption: 步进电机旋转函数
+    :linenos:
+
+    /**
+      * @brief  主函数
+      * @param  无
+      * @retval 无
+      */
+    int main(void) 
+    {
+         int key_val=0;
+         int i=0;
+         int dir_val=0;
+         int angle_val=90;
+         /* 初始化系统时钟为168MHz */
+         SystemClock_Config();
+         /*初始化USART 配置模式为 115200 8-N-1，中断接收*/
+         DEBUG_USART_Config();
+         printf("欢迎使用野火 电机开发板 步进电机 IO口模拟控制 例程\r\n");
+         printf("按下按键1、2可修改旋转方向和角度\r\n");
+         /*按键初始化*/
+         Key_GPIO_Config();
+         /*步进电机初始化*/
+         stepper_Init();
+         /*开启步进电机使能*/
+         while(1)
+         {     
+            /*获取键值*/
+            key_val=ret_key_num();
+            /*有按键按下*/
+            if(key_val)
+            {
+               if(key_val==1)
+               {
+                  /*改变方向*/
+                  dir_val=(++i % 2) ? CLOCKWISE : ANTI_CLOCKWISE;
+               }
+               else if(key_val==2)
+               {
+                  /*增加旋转角度*/
+                  angle_val=angle_val+90;
+               }		
+               stepper_turn(1000,angle_val,32,dir_val);
+               /*打印状态*/
+               if(dir_val)
+                  printf("顺时针旋转 %d 度\r\n",angle_val);
+               else
+                  printf("逆时针旋转 %d 度\r\n",angle_val);
+            }
+         }
+    }
+
+初始化系统时钟、串口、按键和步进电机IO等外设，最后在循环里面处理键值。当KEY1按下后，
+改变旋转方向，当KEY2按下后，增加旋转角度，并打印旋转的状态与角度。    
+
+第二种方式：使用GPIO中断模拟脉冲控制
+""""""""""""""""""""""""""""""""""""""""
+
+第三种方式：使用PWM比较输出
+""""""""""""""""""""""""""""""""""""""""
+
+第四种方式：使用PWM控制匀速旋转
+""""""""""""""""""""""""""""""""""""""""
+
+
+
+
+
+
 
 下载验证
-^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+第一种方式的验证
+""""""""""""""""""""""""""""""""""""""""
+
+第二种方式的验证
+""""""""""""""""""""""""""""""""""""""""
+
+第三种方式的验证
+""""""""""""""""""""""""""""""""""""""""
+
+第四种方式的验证
+""""""""""""""""""""""""""""""""""""""""
 
 
 
