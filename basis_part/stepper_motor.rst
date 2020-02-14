@@ -360,6 +360,8 @@ DC12V~48V,适合外径为42mm、 57mm、86mm系列，驱动电流在5A以下的�
 
 (4) 在main函数中编写按键控制步进电机旋转的代码
 
+**宏定义**
+
 .. code-block:: c
     :caption: 功能引脚相关宏定义
     :linenos:
@@ -567,11 +569,257 @@ DC12V~48V,适合外径为42mm、 57mm、86mm系列，驱动电流在5A以下的�
 第二种方式：使用GPIO中断模拟脉冲控制
 """"""""""""""""""""""""""""""""""""""""
 
+**编程要点**
+
+(1) 通用GPIO配置
+
+(2) 按键及其中断配置
+
+(3) 步进电机、定时器中断初始化
+
+(4) 在定时器中断翻转IO引脚
+
+(5) 在按键中断中编写按键控制步进电机旋转的代码
+
+**宏定义**
+
+.. code-block:: c
+    :caption: 功能引脚相关宏定义
+    :linenos:
+
+    #define GENERAL_TIM                     TIM2
+    #define GENERAL_TIM_CLK_ENABLE()  			__TIM2_CLK_ENABLE()
+ 
+    #define GENERAL_TIM_IRQ                  TIM2_IRQn
+    #define GENERAL_TIM_INT_IRQHandler       TIM2_IRQHandler
+ 
+    //引脚定义
+    /*******************************************************/
+    //Motor 方向 
+    #define MOTOR_DIR_PIN                  	GPIO_PIN_1   
+    #define MOTOR_DIR_GPIO_PORT            	GPIOE                    
+    #define MOTOR_DIR_GPIO_CLK_ENABLE()   	__HAL_RCC_GPIOE_CLK_ENABLE()
+ 
+    //Motor 使能 
+    #define MOTOR_EN_PIN                  	GPIO_PIN_0
+    #define MOTOR_EN_GPIO_PORT            	GPIOE                       
+    #define MOTOR_EN_GPIO_CLK_ENABLE()    	__HAL_RCC_GPIOE_CLK_ENABLE()
+ 
+    //Motor 脉冲
+    #define MOTOR_PUL_PIN                  	GPIO_PIN_15            
+    #define MOTOR_PUL_GPIO_PORT            	GPIOA
+    #define MOTOR_PUL_GPIO_CLK_ENABLE()   	__HAL_RCC_GPIOA_CLK_ENABLE()	
+
+使用宏定义非常方便程序升级、移植。如果使用不同的GPIO，定时更换气你对应修改这些宏即可。
+
+**按键初始化配置**
+
+.. code-block:: c
+    :caption: 按键初始化及中断优先级的配置
+    :linenos:
+
+    /**
+    * @brief  配置 key ，并设置中断优先级
+    * @param  无
+    * @retval 无
+    */
+    void EXTI_Key_Config(void)
+    {
+        GPIO_InitTypeDef GPIO_InitStructure; 
+    
+        /*开启按键GPIO口的时钟*/
+        KEY1_INT_GPIO_CLK_ENABLE();
+        KEY2_INT_GPIO_CLK_ENABLE();
+    
+        /* 选择按键1的引脚 */ 
+        GPIO_InitStructure.Pin = KEY1_INT_GPIO_PIN;
+        /* 设置引脚为输入模式 */ 
+        GPIO_InitStructure.Mode = GPIO_MODE_IT_RISING;	    		
+        /* 设置引脚不上拉也不下拉 */
+        GPIO_InitStructure.Pull = GPIO_NOPULL;
+        /* 使用上面的结构体初始化按键 */
+        HAL_GPIO_Init(KEY1_INT_GPIO_PORT, &GPIO_InitStructure); 
+        /* 配置 EXTI 中断源 到key1 引脚、配置中断优先级*/
+        HAL_NVIC_SetPriority(KEY1_INT_EXTI_IRQ, 0, 0);
+        /* 使能中断 */
+        HAL_NVIC_EnableIRQ(KEY1_INT_EXTI_IRQ);
+    
+        /* 选择按键2的引脚 */ 
+        GPIO_InitStructure.Pin = KEY2_INT_GPIO_PIN;  
+        /* 其他配置与上面相同 */
+        HAL_GPIO_Init(KEY2_INT_GPIO_PORT, &GPIO_InitStructure);       
+        /* 配置 EXTI 中断源 到key1 引脚、配置中断优先级*/
+        HAL_NVIC_SetPriority(KEY2_INT_EXTI_IRQ, 0, 0);
+        /* 使能中断 */
+        HAL_NVIC_EnableIRQ(KEY2_INT_EXTI_IRQ);
+    }
+
+开启按键IO对应的时钟，配置中断源到引脚上，配置中断优先级并使能中断。当按键按下时，会自动进入中断函数并且执行相应代码。
+
+**定时器初始化配置**
+
+.. code-block:: c
+    :caption: 定时器初始化配置
+    :linenos:
+
+    /*
+    * 注意：TIM_TimeBaseInitTypeDef结构体里面有5个成员，TIM6和TIM7的寄存器里面只有
+    * TIM_Prescaler和TIM_Period，所以使用TIM6和TIM7的时候只需初始化这两个成员即可，
+    * 另外三个成员是通用定时器和高级定时器才有.
+    *-----------------------------------------------------------------------------
+    * TIM_Prescaler         都有
+    * TIM_CounterMode			 TIMx,x[6,7]没有，其他都有（通用定时器）
+    * TIM_Period            都有
+    * TIM_ClockDivision     TIMx,x[6,7]没有，其他都有(通用定时器)
+    * TIM_RepetitionCounter TIMx,x[1,8]才有(高级定时器)
+    *-----------------------------------------------------------------------------
+    */
+    static void TIM_Mode_Config(void)
+    {
+ 
+       GENERAL_TIM_CLK_ENABLE();
+ 
+       TIM_TimeBaseStructure.Instance = GENERAL_TIM;
+       /* 累计 TIM_Period个后产生一个更新或者中断*/		
+       //当定时器从0计数到4999，即为5000次，为一个定时周期
+       TIM_TimeBaseStructure.Init.Period = 300-1;	
+       // 通用控制定时器时钟源TIMxCLK = HCLK/2=84MHz 
+       // 设定定时器频率为=TIMxCLK/(TIM_Prescaler+1)=1MHz
+       TIM_TimeBaseStructure.Init.Prescaler = 84-1;
+       // 计数方式
+       TIM_TimeBaseStructure.Init.CounterMode=TIM_COUNTERMODE_UP;
+       // 采样时钟分频
+       TIM_TimeBaseStructure.Init.ClockDivision=TIM_CLOCKDIVISION_DIV1;
+       // 初始化定时器TIMx, x[2,5] [9,14]
+       HAL_TIM_Base_Init(&TIM_TimeBaseStructure);
+ 
+       // 开启定时器更新中断
+       HAL_TIM_Base_Start_IT(&TIM_TimeBaseStructure);	
+    }
+
+首先对定时器进行初始化，定时器模式配置函数主要就是对这结构体的成员进行初始化，然后通过相
+应的初始化函数把这些参数写入定时器的寄存器中。有关结构体的成员介绍请参考定时器详解章节。
+
+由于定时器坐在的APB总线不完全一致，所以说，定时器的时钟是不同的，在使能定时器时钟时必须特别注意，
+在这里使用的是定时器2，通用定时器的总线频率为84MHZ,分频参数选择为（84-1），也就是当计数器计数到1M时为一个周期，
+计数累计到（300-1）时产生一个中断，使用向上计数方式。产生中断后翻转IO口电平即可。
+因为我们使用的是内部时钟，所以外部时钟采样分频成员不需要设置，重复计数器我们没用到，也不需要设置，
+然后调用HAL_TIM_Base_Init初始化定时器并开启定时器更新中断。
+
+
+**步进电机初始化**
+
+.. code-block:: c
+    :caption: 步进电机初始化
+    :linenos:
+
+    /**
+      * @brief  引脚初始化
+      * @retval 无
+      */
+    void stepper_Init()
+    {
+         /*定义一个GPIO_InitTypeDef类型的结构体*/
+         GPIO_InitTypeDef  GPIO_InitStruct;
+
+         /*开启Motor相关的GPIO外设时钟*/
+         MOTOR_DIR_GPIO_CLK_ENABLE();
+         MOTOR_PUL_GPIO_CLK_ENABLE();
+         MOTOR_EN_GPIO_CLK_ENABLE();
+
+         /*选择要控制的GPIO引脚*/															   
+         GPIO_InitStruct.Pin = MOTOR_DIR_PIN;	
+
+         /*设置引脚的输出类型为推挽输出*/
+         GPIO_InitStruct.Mode  = GPIO_MODE_OUTPUT_OD;  
+
+         GPIO_InitStruct.Pull =GPIO_PULLUP;
+
+         /*设置引脚速率为高速 */   
+         GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+
+         /*Motor 方向引脚 初始化*/
+         HAL_GPIO_Init(MOTOR_DIR_GPIO_PORT, &GPIO_InitStruct);	
+
+         /*Motor 脉冲引脚 初始化*/
+         GPIO_InitStruct.Pin = MOTOR_PUL_PIN;	
+         HAL_GPIO_Init(MOTOR_PUL_GPIO_PORT, &GPIO_InitStruct);	
+
+         /*Motor 使能引脚 初始化*/
+         GPIO_InitStruct.Pin = MOTOR_EN_PIN;	
+         HAL_GPIO_Init(MOTOR_EN_GPIO_PORT, &GPIO_InitStruct);	
+
+         /*关掉使能*/
+         MOTOR_EN(OFF);
+         /*初始化定时器*/
+         TIMx_Configuration();
+    
+    }
+
+步进电机引脚使用必须选择相应的模式和设置对应的参数，使用GPIO之前都必须开启相应端口时钟。
+初始化结束后可以先将步进电机驱动器的使能先关掉，需要旋转的时候，再将其打开即可。
+最后需要初始化定时器，来反转引脚电平以达到模拟脉冲的目的。
+
+**按键中服务函数**
+
+.. code-block:: c
+    :caption: 步进电机初始化
+    :linenos:
+
+    /**
+    * @brief  KEY1中断服务函数
+    * @param  无
+    * @retval 无
+    */
+    void KEY1_IRQHandler(void)
+    {
+         //确保是否产生了EXTI Line中断
+         if(__HAL_GPIO_EXTI_GET_IT(KEY1_INT_GPIO_PIN) != RESET) 
+         {
+            // LED2 取反		
+            LED2_TOGGLE;
+
+            /*改变方向*/
+            dir_val=(++i % 2) ? CLOCKWISE : ANTI_CLOCKWISE;
+            MOTOR_DIR(dir_val);
+
+            //清除中断标志位
+            __HAL_GPIO_EXTI_CLEAR_IT(KEY1_INT_GPIO_PIN);     
+         }  
+    }
+    /**
+    * @brief  KEY2中断服务函数
+    * @param  无
+    * @retval 无
+    */
+    void KEY2_IRQHandler(void)
+    {
+         //确保是否产生了EXTI Line中断
+         if(__HAL_GPIO_EXTI_GET_IT(KEY2_INT_GPIO_PIN) != RESET) 
+         {
+            // LED1 取反		
+            LED1_TOGGLE;
+
+            /*改变使能*/
+            en_val=(++j % 2) ? ON : OFF;
+            MOTOR_EN(en_val);
+
+            //清除中断标志位
+            __HAL_GPIO_EXTI_CLEAR_IT(KEY2_INT_GPIO_PIN);     
+         }  
+    }
+
+这是两个中断服务函数，主要对使能开关和方向的改变，在中断里可以实时的改变步进电机的状态。
+
+
 第三种方式：使用PWM比较输出
 """"""""""""""""""""""""""""""""""""""""
 
 第四种方式：使用PWM控制匀速旋转
 """"""""""""""""""""""""""""""""""""""""
+
+
+
 
 
 
@@ -593,6 +841,11 @@ DC12V~48V,适合外径为42mm、 57mm、86mm系列，驱动电流在5A以下的�
 
 第四种方式的验证
 """"""""""""""""""""""""""""""""""""""""
+
+
+
+
+
 
 
 
