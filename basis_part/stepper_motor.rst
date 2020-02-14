@@ -610,7 +610,7 @@ DC12V~48V,适合外径为42mm、 57mm、86mm系列，驱动电流在5A以下的�
     #define MOTOR_PUL_GPIO_PORT            	GPIOA
     #define MOTOR_PUL_GPIO_CLK_ENABLE()   	__HAL_RCC_GPIOA_CLK_ENABLE()	
 
-使用宏定义非常方便程序升级、移植。如果使用不同的GPIO，定时更换气你对应修改这些宏即可。
+使用宏定义非常方便程序升级、移植。如果使用不同的GPIO，定时器更换对应修改这些宏即可。
 
 **按键初始化配置**
 
@@ -811,20 +811,219 @@ DC12V~48V,适合外径为42mm、 57mm、86mm系列，驱动电流在5A以下的�
 
 这是两个中断服务函数，主要对使能开关和方向的改变，在中断里可以实时的改变步进电机的状态。
 
+**主函数**
+
+.. code-block:: c
+    :caption: 主函数
+    :linenos:
+
+    /**
+      * @brief  主函数
+      * @param  无
+      * @retval 无
+      */
+    int main(void) 
+    {
+    
+         /* 初始化系统时钟为168MHz */
+         SystemClock_Config();
+         /*初始化USART 配置模式为 115200 8-N-1，中断接收*/
+         DEBUG_USART_Config();
+         printf("欢迎使用野火 电机开发板 步进电机 IO口模拟控制 例程\r\n");
+         printf("按下按键1、2可修改旋转方向和使能\r\n");
+         /*按键中断初始化*/
+         EXTI_Key_Config();	
+         /*步进电机初始化*/
+         stepper_Init();	
+      
+         MOTOR_EN(0);
+      
+         while(1)
+         {     
+      
+         }
+    } 
+
+主函数中只有对系统和外设的初始化，部分代码已在中断函数中实现，则不需要在while里面提及到。    
+
+与方式一不同的是，从延时模拟脉冲变成了中断翻转电平增加了脉冲的准确性。
 
 第三种方式：使用PWM比较输出
 """"""""""""""""""""""""""""""""""""""""
 
+方式二与方式三中的相同的部分，不再重复讲解，这里只讲解不同的部分。
+
+**编程要点**
+
+(1) 按键及其中断配置
+
+(2) 步进电机定时器配置
+
+(3) 在按键中断中编写按键控制步进电机旋转的代码
+
+**宏定义**
+
+.. code-block:: c
+    :caption: 宏定义
+    :linenos:
+
+    /*宏定义*/
+    /*******************************************************/
+    //Motor 方向 
+    #define MOTOR_DIR_PIN                  	GPIO_PIN_1   
+    #define MOTOR_DIR_GPIO_PORT            	GPIOE                    
+    #define MOTOR_DIR_GPIO_CLK_ENABLE()   	__HAL_RCC_GPIOE_CLK_ENABLE()
+    
+    //Motor 使能 
+    #define MOTOR_EN_PIN                  	GPIO_PIN_0
+    #define MOTOR_EN_GPIO_PORT            	GPIOE                       
+    #define MOTOR_EN_GPIO_CLK_ENABLE()    	__HAL_RCC_GPIOE_CLK_ENABLE()
+    
+    //Motor 脉冲
+    //#define MOTOR_PUL_TIM                        			TIM8
+    //#define MOTOR_PUL_CLK_ENABLE()  									__TIM8_CLK_ENABLE()
+    
+    //#define MOTOR_PUL_IRQn                   					TIM8_CC_IRQn
+    //#define MOTOR_PUL_IRQHandler             					TIM8_CC_IRQHandler
+    
+    //#define MOTOR_PUL_PORT                						GPIOC                       
+    //#define MOTOR_PUL_PIN                 						GPIO_PIN_6                  
+    //#define MOTOR_PUL_GPIO_CLK_ENABLE()       				__HAL_RCC_GPIOC_CLK_ENABLE()
+    
+    //#define MOTOR_PUL_GPIO_AF                         GPIO_AF3_TIM8
+    //#define MOTOR_PUL_CHANNEL_x               				TIM_CHANNEL_1
+    
+    
+    #define MOTOR_PUL_TIM                   TIM2
+    #define MOTOR_PUL_CLK_ENABLE()  				__TIM2_CLK_ENABLE()
+    
+    #define MOTOR_PUL_IRQn                   					TIM2_IRQn
+    #define MOTOR_PUL_IRQHandler             					TIM2_IRQHandler
+    
+    #define MOTOR_PUL_PORT       							GPIOA
+    #define MOTOR_PUL_PIN             				GPIO_PIN_15
+    #define MOTOR_PUL_GPIO_CLK_ENABLE()			__HAL_RCC_GPIOA_CLK_ENABLE()
+    
+    #define MOTOR_PUL_GPIO_AF               GPIO_AF1_TIM2
+    #define MOTOR_PUL_CHANNEL_x             TIM_CHANNEL_1
+
+
+
+使用宏定义非常方便程序升级、移植。如果使用不同的GPIO，定时器更换对应修改这些宏即可。
+
+**PWM输出配置**
+
+.. code-block:: c
+    :caption: PWM输出配置
+    :linenos:
+
+    /*
+    * 注意：TIM_TimeBaseInitTypeDef结构体里面有5个成员，TIM6和TIM7的寄存器里面只有
+    * TIM_Prescaler和TIM_Period，所以使用TIM6和TIM7的时候只需初始化这两个成员即可，
+    * 另外三个成员是通用定时器和高级定时器才有.
+    *-----------------------------------------------------------------------------
+    * TIM_Prescaler         都有
+    * TIM_CounterMode			 TIMx,x[6,7]没有，其他都有（基本定时器）
+    * TIM_Period            都有
+    * TIM_ClockDivision     TIMx,x[6,7]没有，其他都有(基本定时器)
+    * TIM_RepetitionCounter TIMx,x[1,8]才有(高级定时器)
+    *-----------------------------------------------------------------------------
+    */
+    void TIM_PWMOUTPUT_Config(void)
+    {
+      TIM_OC_InitTypeDef  TIM_OCInitStructure;  	
+      /*使能定时器*/
+      MOTOR_PUL_CLK_ENABLE();
+
+      TIM_TimeBaseStructure.Instance = MOTOR_PUL_TIM;    
+      /* 累计 TIM_Period个后产生一个更新或者中断*/		
+      //当定时器从0计数到10000，即为10000次，为一个定时周期
+      TIM_TimeBaseStructure.Init.Period = TIM_PERIOD; 
+      // 通用控制定时器时钟源TIMxCLK = HCLK/2=84MHz 
+      // 设定定时器频率为=TIMxCLK/(TIM_Prescaler+1)=1MHz
+      TIM_TimeBaseStructure.Init.Prescaler = 84-1;                
+
+      /*计数方式*/
+      TIM_TimeBaseStructure.Init.CounterMode = TIM_COUNTERMODE_UP;            
+      /*采样时钟分频*/	
+      TIM_TimeBaseStructure.Init.ClockDivision=TIM_CLOCKDIVISION_DIV1;   
+      TIM_TimeBaseStructure.Init.RepetitionCounter = 0 ;  		
+      /*初始化定时器*/
+      HAL_TIM_OC_Init(&TIM_TimeBaseStructure);
+
+      /*PWM模式配置--这里配置为输出比较模式*/
+      TIM_OCInitStructure.OCMode = TIM_OCMODE_TOGGLE; 
+      /*比较输出的计数值*/
+      TIM_OCInitStructure.Pulse = OC_Pulse_num;                    
+      /*当定时器计数值小于CCR1_Val时为高电平*/
+      TIM_OCInitStructure.OCPolarity = TIM_OCPOLARITY_HIGH;          
+      /*设置互补通道输出的极性*/
+      TIM_OCInitStructure.OCNPolarity = TIM_OCNPOLARITY_LOW; 
+      /*快速模式设置*/
+      TIM_OCInitStructure.OCFastMode = TIM_OCFAST_DISABLE;   
+      /*空闲电平*/
+      TIM_OCInitStructure.OCIdleState = TIM_OCIDLESTATE_RESET;  
+      /*互补通道设置*/
+      TIM_OCInitStructure.OCNIdleState = TIM_OCNIDLESTATE_RESET; 
+      HAL_TIM_OC_ConfigChannel(&TIM_TimeBaseStructure, &TIM_OCInitStructure, MOTOR_PUL_CHANNEL_x);
+
+      /* 确定定时器 */
+      HAL_TIM_Base_Start(&TIM_TimeBaseStructure);
+      /* 启动比较输出并使能中断 */
+      HAL_TIM_OC_Start_IT(&TIM_TimeBaseStructure,MOTOR_PUL_CHANNEL_x);
+      /*使能比较通道*/
+      TIM_CCxChannelCmd(MOTOR_PUL_TIM,MOTOR_PUL_CHANNEL_x,TIM_CCx_ENABLE);
+ 
+    }
+
+
+
+
+首先定义两个定时器初始化结构体，定时器模式配置函数主要就是对这两个结构体的成员进行初始化，然后通过相
+应的初始化函数把这些参数写入定时器的寄存器中。有关结构体的成员介绍请参考定时器详解章节。
+
+不同的定时器可能对应不同的APB总线，在使能定时器时钟是必须特别注意。通用控制定时器属于APB1，
+定时器内部时钟是84MHz。
+
+配置结构体后，则需要调用HAL_TIM_Base_Init初始化定时器并且启用比较输出通道和使能比较通道即可。
+
+在输出比较结构体中，设置输出模式为TOGGLE模式，通道输出高电平有效，设置默认脉宽为OC_Pulse_num，
+OC_Pulse_num是我们定义的一个全局参数，用来指定占空比大小，实际上脉宽就是设定比较寄存器CCR的值，
+用于跟计数器CNT的值比较。然后调用HAL_TIM_PWM_ConfigChannel初始化PWM输出。
+
+最后使用HAL_TIM_PWM_Start函数让计数器开始计数和通道输出。
+
+**定时器比较中断**
+
+.. code-block:: c
+    :caption: 定时器比较中断
+    :linenos:
+
+    /**
+    * @brief  定时器比较中断
+    * @param  htim：定时器句柄指针
+       *	@note 		无
+    * @retval 无
+    */
+    void HAL_TIM_OC_DelayElapsedCallback(TIM_HandleTypeDef *htim)
+    {
+      uint32_t count;
+      __IO uint32_t temp_val;
+      /*获取当前计数*/
+      count=__HAL_TIM_GET_COUNTER(&TIM_TimeBaseStructure);
+      /*计算比较数值*/
+      temp_val = TIM_PERIOD & (count+OC_Pulse_num); 
+   
+      /*设置比较数值*/
+      __HAL_TIM_SET_COMPARE(&TIM_TimeBaseStructure,MOTOR_PUL_CHANNEL_x,temp_val);
+ 
+    }
+
+当定时器的比较数值达到后，就会产生中断，进入到这个定时器比较中断，中断中主要用于获取当前的计数值与设定下一次进入中断的时间。
+
+
 第四种方式：使用PWM控制匀速旋转
 """"""""""""""""""""""""""""""""""""""""
-
-
-
-
-
-
-
-
 
 
 下载验证
