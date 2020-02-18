@@ -339,6 +339,28 @@ DC12V~48V,适合外径为42mm、 57mm、86mm系列，驱动电流在5A以下的�
 
 介绍步进电机的电路与接线方法
 
+**隔离电路**
+
+步进电机光耦隔离部分电路
+
+.. image:: ../media/步进电机接口隔离.png
+   :align: center
+
+上图为原理图中的隔离电路，其中主要用到的是高速的光耦进行隔离，在这里隔离不仅可以防止外部电流倒灌，
+损坏芯片，还有增强驱动能力的作用；并且在开发板这端已经默认为共阳极接法了，可以将步进电机的所有线按照对应的顺序接在端子上，
+也可以在驱动器一端实现共阴或者共阳的接法。
+
+**接线方法**
+
+:doc:`可以参考这一章节`
+
+使用标题文字
+:doc:`./stepper_motor`
+
+
+
+
+
 软件设计
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -1021,9 +1043,131 @@ OC_Pulse_num是我们定义的一个全局参数，用来指定占空比大小�
 
 当定时器的比较数值达到后，就会产生中断，进入到这个定时器比较中断，中断中主要用于获取当前的计数值与设定下一次进入中断的时间。
 
+** 主函数**
+
+.. code-block:: c
+    :caption: 主函数
+    :linenos:
+
+    /**
+    * @brief  主函数
+    * @param  无
+    * @retval 无
+    */
+    int main(void) 
+    {
+      /* 初始化系统时钟为168MHz */
+      SystemClock_Config();
+      /*初始化USART 配置模式为 115200 8-N-1，中断接收*/
+      DEBUG_USART_Config();
+      printf("欢迎使用野火 电机开发板 步进电机 PWM控制旋转 例程\r\n");
+      printf("按下按键1、2可修改旋转方向和使能\r\n");	
+      /*按键中断初始化*/
+      EXTI_Key_Config();	
+      /*led初始化*/
+      LED_GPIO_Config();
+      /*步进电机初始化*/
+      stepper_Init();
+   
+      while(1)
+      {     
+   
+      }
+    } 
+
+主函数只做一些初始化外设的配置，具体的脉冲产生已经在定时器中实现了，并且控制步进电机旋转的代码已经在按键中断中实现了。
+
+
+
+
+
 
 第四种方式：使用PWM控制匀速旋转
 """"""""""""""""""""""""""""""""""""""""
+与比较输出的PWM相比，普通的PWM模式就有些略显简单了，虽然简单但控制步进电机匀速旋转还是绰绰有余。
+
+与上述有相同的部分，不再重复讲解。
+
+
+**编程要点**
+
+(1)按键及其中断配置
+
+(2)步进电机、定时器初始化
+
+(3)在按键中断中编写按键控制步进电机旋转的代码
+
+
+**步进电机定时器初始化**
+
+.. code-block:: c
+    :caption: 定时器初始化配置
+    :linenos:
+
+    /*
+    * 注意：TIM_TimeBaseInitTypeDef结构体里面有5个成员，TIM6和TIM7的寄存器里面只有
+    * TIM_Prescaler和TIM_Period，所以使用TIM6和TIM7的时候只需初始化这两个成员即可，
+    * 另外三个成员是通用定时器和高级定时器才有.
+    *-----------------------------------------------------------------------------
+    * TIM_Prescaler         都有
+    * TIM_CounterMode			 TIMx,x[6,7]没有，其他都有（基本定时器）
+    * TIM_Period            都有
+    * TIM_ClockDivision     TIMx,x[6,7]没有，其他都有(基本定时器)
+    * TIM_RepetitionCounter TIMx,x[1,8]才有(高级定时器)
+    *-----------------------------------------------------------------------------
+    */
+    TIM_HandleTypeDef  TIM_TimeBaseStructure;
+    static void TIM_PWMOUTPUT_Config(void)
+    {
+      TIM_OC_InitTypeDef  TIM_OCInitStructure;  
+      int tim_per=50;//定时器周期
+
+      /*使能定时器*/
+      MOTOR_PUL_CLK_ENABLE();
+
+      TIM_TimeBaseStructure.Instance = MOTOR_PUL_TIM;
+      /* 累计 TIM_Period个后产生一个更新或者中断*/		
+      //当定时器从0计数到10000，即为10000次，为一个定时周期
+      TIM_TimeBaseStructure.Init.Period = tim_per;
+      // 通用控制定时器时钟源TIMxCLK = HCLK/2=84MHz 
+      // 设定定时器频率为=TIMxCLK/(TIM_Prescaler+1)=1MHz
+      TIM_TimeBaseStructure.Init.Prescaler = (84)-1;	
+
+      /*计数方式*/
+      TIM_TimeBaseStructure.Init.CounterMode = TIM_COUNTERMODE_UP;
+      /*采样时钟分频*/
+      TIM_TimeBaseStructure.Init.ClockDivision=TIM_CLOCKDIVISION_DIV1;
+      /*初始化定时器*/
+      HAL_TIM_Base_Init(&TIM_TimeBaseStructure);
+
+      /*PWM模式配置*/
+      TIM_OCInitStructure.OCMode = TIM_OCMODE_PWM1;//配置为PWM模式1 
+      TIM_OCInitStructure.Pulse = tim_per/2;//默认占空比为50%
+      TIM_OCInitStructure.OCFastMode = TIM_OCFAST_DISABLE;
+      /*当定时器计数值小于CCR1_Val时为高电平*/
+      TIM_OCInitStructure.OCPolarity = TIM_OCPOLARITY_HIGH;	
+
+      /*配置PWM通道*/
+      HAL_TIM_PWM_ConfigChannel(&TIM_TimeBaseStructure, &TIM_OCInitStructure, MOTOR_PUL_CHANNEL_x);
+      /*开始输出PWM*/
+      HAL_TIM_PWM_Start(&TIM_TimeBaseStructure,MOTOR_PUL_CHANNEL_x);
+    
+    }
+
+
+首先对定时器进行初始化，定时器模式配置函数主要就是对这结构体的成员进行初始化，然后通过相
+应的初始化函数把这些参数写入定时器的寄存器中。有关结构体的成员介绍请参考定时器详解章节。
+
+由于定时器坐在的APB总线不完全一致，所以说，定时器的时钟是不同的，在使能定时器时钟时必须特别注意，
+在这里使用的是定时器2，通用定时器的总线频率为84MHZ,分频参数选择为（84-1），也就是当计数器计数到1M时为一个周期，
+计数累计到tim_per时使能的通道就会产生一个脉冲，并且使用向上计数方式。
+因为我们使用的是内部时钟，所以外部时钟采样分频成员不需要设置，重复计数器我们没用到，也不需要设置，
+然后调用HAL_TIM_PWM_ConfigChannel()来配置所需的定时器通道，并且开始输出PWM。
+
+其它相同的函数不在这详细讲解。
+
+上面虽然说是四种方式去控制步进电机，但其实原理大同小异，最终的目的都是产生脉冲，所谓条条大道通罗马，
+也许产生脉冲且控制步进电机的不止这四种，但相信经过上述的方式你一定对步进电机的基础控制了解的足够深刻了。
 
 
 下载验证
@@ -1040,13 +1184,6 @@ OC_Pulse_num是我们定义的一个全局参数，用来指定占空比大小�
 
 第四种方式的验证
 """"""""""""""""""""""""""""""""""""""""
-
-
-
-
-
-
-
 
 
 
