@@ -333,6 +333,7 @@ DC12V~48V,适合外径为42mm、 57mm、86mm系列，驱动电流在5A以下的�
 
 当输入信号高于5V时，可根据需要外接限流电阻。
 
+
 步进电机基础旋转控制
 ------------------------------------
 
@@ -1195,4 +1196,18 @@ OC_Pulse_num是我们定义的一个全局参数，用来指定占空比大小�
 .. #. hhhhhhhh
 .. #. hhhhhhhh
 .. #. hhhhhhhh
+
+.. .. image:: ../media/xxx.png
+..    :align: center
+..    :alt: xxx
+
+.. .. code-block:: c
+..     :caption: xxx
+..     :linenos:
+
+
+.. .. _test:
+..  :ref:`test` 
+
+
 
