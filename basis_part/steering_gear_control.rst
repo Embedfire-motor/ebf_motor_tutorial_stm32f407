@@ -101,9 +101,9 @@
     :linenos:
 
     /*宏定义*/
-    #define GENERAL_TIM                        	TIM2
-    #define GENERAL_TIM_GPIO_AF                 GPIO_AF1_TIM2
-    #define GENERAL_TIM_CLK_ENABLE()            __TIM2_CLK_ENABLE()
+    #define GENERAL_TIM                        	TIM4
+    #define GENERAL_TIM_GPIO_AF                 GPIO_AF2_TIM4
+    #define GENERAL_TIM_CLK_ENABLE()  					__TIM4_CLK_ENABLE()
 
     #define PWM_CHANNEL_1                       TIM_CHANNEL_1
     //#define PWM_CHANNEL_2                       TIM_CHANNEL_2
@@ -119,17 +119,11 @@
     #define PWM_PRESCALER_COUNT     1679
 
     /*PWM引脚*/
-    #define GENERAL_TIM_CH1_GPIO_PORT           GPIOA
-    #define GENERAL_TIM_CH1_PIN                 GPIO_PIN_15
+    #define GENERAL_TIM_CH1_GPIO_PORT           GPIOD
+    #define GENERAL_TIM_CH1_PIN                 GPIO_PIN_12
 
-    //#define GENERAL_TIM_CH2_GPIO_PORT           GPIOB
-    //#define GENERAL_TIM_CH2_PIN                 GPIO_PIN_3
-
-    //#define GENERAL_TIM_CH3_GPIO_PORT           GPIOB
-    //#define GENERAL_TIM_CH3_PIN                 GPIO_PIN_10
-
-    //#define GENERAL_TIM_CH4_GPIO_PORT           GPIOB
-    //#define GENERAL_TIM_CH4_PIN                 GPIO_PIN_11
+    //#define GENERAL_TIM_CH2_GPIO_PORT           GPIOD
+    //#define GENERAL_TIM_CH2_PIN                 GPIO_PIN_13
 
 使用宏定义非常方便程序升级、移植。如果使用不同的定时器IO，修改这些宏即可。
 

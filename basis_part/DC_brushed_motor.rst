@@ -171,33 +171,30 @@ bsp_motor_control.c和bsp_motor_control.h文件用来存定时器驱动和电机
    :linenos:
 
     /*宏定义*/
-    #define GENERAL_TIM                        	TIM2
-    #define GENERAL_TIM_GPIO_AF                 GPIO_AF1_TIM2
-    #define GENERAL_TIM_CLK_ENABLE()  					__TIM2_CLK_ENABLE()
+    #define PWM_TIM                        	TIM1
+    #define PWM_TIM_GPIO_AF                 GPIO_AF1_TIM1
+    #define PWM_TIM_CLK_ENABLE()  					__TIM1_CLK_ENABLE()
 
-    #define PWM_CHANNEL_1                       TIM_CHANNEL_1
-    #define PWM_CHANNEL_2                       TIM_CHANNEL_2
+    #define PWM_CHANNEL_1                   TIM_CHANNEL_1
+    #define PWM_CHANNEL_2                   TIM_CHANNEL_2
 
     /* 累计 TIM_Period个后产生一个更新或者中断*/		
     /* 当定时器从0计数到PWM_PERIOD_COUNT，即为PWM_PERIOD_COUNT+1次，为一个定时周期 */
-    #define PWM_PERIOD_COUNT     5599
+    #define PWM_PERIOD_COUNT     (1000)
 
-    /* 通用控制定时器时钟源TIMxCLK = HCLK/2=84MHz */
+    /* 通用控制定时器时钟源TIMxCLK = HCLK=168MHz */
     /* 设定定时器频率为=TIMxCLK/(PWM_PRESCALER_COUNT+1) */
-    #define PWM_PRESCALER_COUNT     0
+    #define PWM_PRESCALER_COUNT     (9)
 
     /*PWM引脚*/
-    #define GENERAL_TIM_CH1_GPIO_PORT           GPIOA
-    #define GENERAL_TIM_CH1_PIN                 GPIO_PIN_15
+    #define PWM_TIM_CH1_GPIO_PORT           GPIOA
+    #define PWM_TIM_CH1_PIN                 GPIO_PIN_8
 
-    #define GENERAL_TIM_CH2_GPIO_PORT           GPIOB
-    #define GENERAL_TIM_CH2_PIN                 GPIO_PIN_3
+    #define PWM_TIM_CH2_GPIO_PORT           GPIOA
+    #define PWM_TIM_CH2_PIN                 GPIO_PIN_9
 
-    #define GENERAL_TIM_CH3_GPIO_PORT           GPIOB
-    #define GENERAL_TIM_CH3_PIN                 GPIO_PIN_10
-
-    #define GENERAL_TIM_CH4_GPIO_PORT           GPIOB
-    #define GENERAL_TIM_CH4_PIN                 GPIO_PIN_11
+    #define PWM_TIM_CH3_GPIO_PORT           GPIOA
+    #define PWM_TIM_CH3_PIN                 GPIO_PIN_10
 
 使用宏定义非常方便程序升级、移植。如果使用不同的定时器IO，修改这些宏即可。
 
@@ -209,12 +206,12 @@ bsp_motor_control.c和bsp_motor_control.h文件用来存定时器驱动和电机
 
     static void TIMx_GPIO_Config(void) 
     {
-      GPIO_InitTypeDef GPIO_InitStruct;
+    GPIO_InitTypeDef GPIO_InitStruct;
       
       /* 定时器通道功能引脚端口时钟使能 */
       
       __HAL_RCC_GPIOA_CLK_ENABLE();
-      __HAL_RCC_GPIOB_CLK_ENABLE();
+      __HAL_RCC_GPIOA_CLK_ENABLE();
       
       /* 定时器通道1功能引脚IO初始化 */
       /*设置输出类型*/
@@ -222,15 +219,15 @@ bsp_motor_control.c和bsp_motor_control.h文件用来存定时器驱动和电机
       /*设置引脚速率 */ 
       GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
       /*设置复用*/
-      GPIO_InitStruct.Alternate = GENERAL_TIM_GPIO_AF;
+      GPIO_InitStruct.Alternate = PWM_TIM_GPIO_AF;
       
       /*选择要控制的GPIO引脚*/	
-      GPIO_InitStruct.Pin = GENERAL_TIM_CH1_PIN;
+      GPIO_InitStruct.Pin = PWM_TIM_CH1_PIN;
       /*调用库函数，使用上面配置的GPIO_InitStructure初始化GPIO*/
-      HAL_GPIO_Init(GENERAL_TIM_CH1_GPIO_PORT, &GPIO_InitStruct);
+      HAL_GPIO_Init(PWM_TIM_CH1_GPIO_PORT, &GPIO_InitStruct);
 
-      GPIO_InitStruct.Pin = GENERAL_TIM_CH2_PIN;	
-      HAL_GPIO_Init(GENERAL_TIM_CH2_GPIO_PORT, &GPIO_InitStruct);
+      GPIO_InitStruct.Pin = PWM_TIM_CH2_PIN;	
+      HAL_GPIO_Init(PWM_TIM_CH2_GPIO_PORT, &GPIO_InitStruct);
       
     }
 
@@ -247,29 +244,30 @@ bsp_motor_control.c和bsp_motor_control.h文件用来存定时器驱动和电机
       TIM_OC_InitTypeDef  TIM_OCInitStructure;  
       
       /*使能定时器*/
-      GENERAL_TIM_CLK_ENABLE();
+      PWM_TIM_CLK_ENABLE();
       
-      TIM_TimeBaseStructure.Instance = GENERAL_TIM;
+      TIM_TimeBaseStructure.Instance = PWM_TIM;
       /* 累计 TIM_Period个后产生一个更新或者中断*/		
       //当定时器从0计数到PWM_PERIOD_COUNT，即为PWM_PERIOD_COUNT+1次，为一个定时周期
-      TIM_TimeBaseStructure.Init.Period = PWM_PERIOD_COUNT;
+      TIM_TimeBaseStructure.Init.Period = PWM_PERIOD_COUNT - 1;
       // 通用控制定时器时钟源TIMxCLK = HCLK/2=84MHz 
       // 设定定时器频率为=TIMxCLK/(PWM_PRESCALER_COUNT+1)
-      TIM_TimeBaseStructure.Init.Prescaler = PWM_PRESCALER_COUNT;	
+      TIM_TimeBaseStructure.Init.Prescaler = PWM_PRESCALER_COUNT - 1;	
       
       /*计数方式*/
       TIM_TimeBaseStructure.Init.CounterMode = TIM_COUNTERMODE_UP;
       /*采样时钟分频*/
       TIM_TimeBaseStructure.Init.ClockDivision=TIM_CLOCKDIVISION_DIV1;
       /*初始化定时器*/
-      HAL_TIM_Base_Init(&TIM_TimeBaseStructure);
+      HAL_TIM_PWM_Init(&TIM_TimeBaseStructure);
       
       /*PWM模式配置*/
-      TIM_OCInitStructure.OCMode = TIM_OCMODE_PWM1;//配置为PWM模式1
-      TIM_OCInitStructure.Pulse = PWM_PERIOD_COUNT/2;//默认占空比为50%
-      TIM_OCInitStructure.OCFastMode = TIM_OCFAST_DISABLE;
-      /*当定时器计数值小于CCR1_Val时为高电平*/
-      TIM_OCInitStructure.OCPolarity = TIM_OCPOLARITY_HIGH;	
+      TIM_OCInitStructure.OCMode = TIM_OCMODE_PWM1;
+      TIM_OCInitStructure.Pulse = 0;
+      TIM_OCInitStructure.OCPolarity = TIM_OCPOLARITY_LOW;
+      TIM_OCInitStructure.OCNPolarity = TIM_OCPOLARITY_LOW;
+      TIM_OCInitStructure.OCIdleState = TIM_OCIDLESTATE_SET;
+      TIM_OCInitStructure.OCNIdleState = TIM_OCNIDLESTATE_RESET;
       
       /*配置PWM通道*/
       HAL_TIM_PWM_ConfigChannel(&TIM_TimeBaseStructure, &TIM_OCInitStructure, PWM_CHANNEL_1);
@@ -277,7 +275,7 @@ bsp_motor_control.c和bsp_motor_control.h文件用来存定时器驱动和电机
       HAL_TIM_PWM_Start(&TIM_TimeBaseStructure,PWM_CHANNEL_1);
       
       /*配置脉宽*/
-      TIM_OCInitStructure.Pulse = PWM_PERIOD_COUNT/2;//默认占空比为50%
+      TIM_OCInitStructure.Pulse = PWM_PERIOD_COUNT/2;    // 默认占空比为50%
       /*配置PWM通道*/
       HAL_TIM_PWM_ConfigChannel(&TIM_TimeBaseStructure, &TIM_OCInitStructure, PWM_CHANNEL_2);
       /*开始输出PWM*/
@@ -328,8 +326,8 @@ ChannelPulse是我们定义的一个无符号16位整形的全局变量，用来
    :linenos:
    
     /* 设置速度（占空比） */
-    #define SET_FWD_COMPAER(ChannelPulse)     TIM2_SetPWM_pulse(PWM_CHANNEL_1,ChannelPulse)    // 设置比较寄存器的值
-    #define SET_REV_COMPAER(ChannelPulse)     TIM2_SetPWM_pulse(PWM_CHANNEL_2,ChannelPulse)    // 设置比较寄存器的值
+    #define SET_FWD_COMPAER(ChannelPulse)     TIM1_SetPWM_pulse(PWM_CHANNEL_1,ChannelPulse)    // 设置比较寄存器的值
+    #define SET_REV_COMPAER(ChannelPulse)     TIM1_SetPWM_pulse(PWM_CHANNEL_2,ChannelPulse)    // 设置比较寄存器的值
 
     /* 使能输出 */
     #define MOTOR_FWD_ENABLE()      HAL_TIM_PWM_Start(&TIM_TimeBaseStructure,PWM_CHANNEL_1);    // 使能 PWM 通道 1
@@ -403,25 +401,36 @@ ChannelPulse是我们定义的一个无符号16位整形的全局变量，用来
       /* 通用定时器初始化并配置PWM输出功能 */
       TIMx_Configuration();
       
-      TIM2_SetPWM_pulse(PWM_CHANNEL_1,0);
-      TIM2_SetPWM_pulse(PWM_CHANNEL_2,0);
+      TIM1_SetPWM_pulse(PWM_CHANNEL_1,0);
+      TIM1_SetPWM_pulse(PWM_CHANNEL_2,0);
       
       while(1)
       {
         /* 扫描KEY1 */
-        if( Key_Scan(KEY1_GPIO_PORT,KEY1_PIN) == KEY_ON  )
+        if( Key_Scan(KEY1_GPIO_PORT, KEY1_PIN) == KEY_ON)
         {
           /* 增大占空比 */
-          ChannelPulse+=500;
+          ChannelPulse += 50;
           
-          if(ChannelPulse>PWM_PERIOD_COUNT)
-            ChannelPulse=PWM_PERIOD_COUNT;
+          if(ChannelPulse > PWM_PERIOD_COUNT)
+            ChannelPulse = PWM_PERIOD_COUNT;
           
           set_motor_speed(ChannelPulse);
         }
         
         /* 扫描KEY2 */
-        if( Key_Scan(KEY2_GPIO_PORT,KEY2_PIN) == KEY_ON  )
+        if( Key_Scan(KEY2_GPIO_PORT, KEY2_PIN) == KEY_ON)
+        {
+          if(ChannelPulse < 50)
+            ChannelPulse = 0;
+          else
+            ChannelPulse -= 50;
+          
+          set_motor_speed(ChannelPulse);
+        }
+        
+        /* 扫描KEY3 */
+        if( Key_Scan(KEY3_GPIO_PORT, KEY3_PIN) == KEY_ON)
         {
           /* 转换方向 */
           set_motor_direction( (++i % 2) ? MOTOR_FWD : MOTOR_REV);
