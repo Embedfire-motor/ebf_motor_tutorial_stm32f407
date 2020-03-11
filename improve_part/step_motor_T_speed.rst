@@ -406,15 +406,210 @@
 
 
 梯形加减速算法实现
-------------------------------------
-
+------------------------------------------
 
 硬件设计
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+提高部分的线路连接与基础部分的线路连接是完全一样的，所以硬件的部分可以直接参考： **基础部分-步进电机基础旋转控制-硬件设计**
 
 软件设计
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+**编程要点**
+
+(1) 通用GPIO配置
+
+(3) 步进电机、定时器中断初始化
+
+(4) 在定时器中对速度和状态进行决策
+
+(5) 通过对步进电机的步数、加减速度和最大速度的设置来决定步进电机的运动
+
+
+梯形加减速算法是基于基础旋转的延伸控制方式，所以，相关的基础部分可以直接参考基础部分步进电机控制的教程；
+
+**宏定义**
+
+.. code-block:: c
+    :caption: xxx
+    :linenos:
+
+    #ifndef __BSP_STEP_MOTOR_INIT_H
+    #define	__BSP_STEP_MOTOR_INIT_H
+    
+    #include "stm32f4xx.h"
+    #include "stm32f4xx_hal.h"
+    #include "./stepper/bsp_stepper_T_speed.h"
+    
+    /*宏定义*/
+    /*******************************************************/
+    //宏定义对应开发板的接口 1 、2 、3 、4
+    #define CHANNEL_SW 1
+    
+    #if(CHANNEL_SW == 1)
+    //Motor 方向 
+    #define MOTOR_DIR_PIN                  	GPIO_PIN_1   
+    #define MOTOR_DIR_GPIO_PORT            	GPIOE                    
+    #define MOTOR_DIR_GPIO_CLK_ENABLE()   	__HAL_RCC_GPIOE_CLK_ENABLE()
+ 
+    //Motor 使能 
+    #define MOTOR_EN_PIN                  	GPIO_PIN_0
+    #define MOTOR_EN_GPIO_PORT            	GPIOE                       
+    #define MOTOR_EN_GPIO_CLK_ENABLE()    	__HAL_RCC_GPIOE_CLK_ENABLE()
+       
+    //Motor 脉冲
+    #define MOTOR_PUL_IRQn                  TIM8_CC_IRQn
+    #define MOTOR_PUL_IRQHandler            TIM8_CC_IRQHandler
+ 
+    #define MOTOR_PUL_TIM                   TIM8
+    #define MOTOR_PUL_CLK_ENABLE()  		__TIM8_CLK_ENABLE()
+ 
+    #define MOTOR_PUL_PORT       			GPIOI
+    #define MOTOR_PUL_PIN             		GPIO_PIN_5
+    #define MOTOR_PUL_GPIO_CLK_ENABLE()		__HAL_RCC_GPIOI_CLK_ENABLE()
+  
+    #define MOTOR_PUL_GPIO_AF               GPIO_AF3_TIM8
+    #define MOTOR_PUL_CHANNEL_x             TIM_CHANNEL_1
+ 
+    #define MOTOR_TIM_IT_CCx                TIM_IT_CC1
+    #define MOTOR_TIM_FLAG_CCx              TIM_FLAG_CC1 
+    
+    #elif(CHANNEL_SW == 2)
+    
+    ... ... 
+
+    #elif(CHANNEL_SW == 3)
+    
+    ... ...      
+    
+    #elif(CHANNEL_SW == 4)
+
+    ... ...    
+
+    #endif
+    
+    #endif
+
+以上是在板子上步进电机的四个接口，（由于篇幅有限，只写了一部分具体开源码）为了方便使用，在这里全都定义完，并且可以使用宏定义 **CHANNEL_SW** 
+直接修改数值为1、2、3、4就可以直接修改对应的开发板通道，然后对应接在上面即可。
+
+对于加减速来说有两个部分的框架很重要，分别是中断函数里面的速度决策调用和 **stepper_move_T()** 函数相关数值计算。
+
+
+**速度决策**
+
+.. code-block:: c
+    :caption: xxx
+    :linenos:
+
+    /**
+    * @brief  速度决策
+    *	@note 	在中断中使用，每进一次中断，决策一次
+    * @retval 无
+    */
+    void speed_decision()
+    {
+         uint32_t tim_count=0;
+         uint32_t tmp = 0;
+         // 保存新（下）一个延时周期
+         uint16_t new_step_delay=0;
+         // 加速过程中最后一次延时（脉冲周期）.
+         static uint16_t last_accel_delay=0;
+         // 总移动步数计数器
+         static uint32_t step_count = 0;
+         static int32_t rest = 0;
+         //定时器使用翻转模式，需要进入两次中断才输出一个完整脉冲
+         static uint8_t i=0;
+      
+         if(__HAL_TIM_GET_IT_SOURCE(&TIM_TimeBaseStructure, MOTOR_TIM_IT_CCx) !=RESET)
+         {
+            // 清楚定时器中断
+            __HAL_TIM_CLEAR_IT(&TIM_TimeBaseStructure, MOTOR_TIM_IT_CCx);
+      
+            // 设置比较值
+            tim_count=__HAL_TIM_GET_COUNTER(&TIM_TimeBaseStructure);
+            tmp = tim_count+srd.step_delay;
+            __HAL_TIM_SET_COMPARE(&TIM_TimeBaseStructure,MOTOR_PUL_CHANNEL_x,tmp);
+      
+            i++;     // 定时器中断次数计数值
+            if(i==2) // 2次，说明已经输出一个完整脉冲
+            {
+               i=0;   // 清零定时器中断次数计数值
+               switch(srd.run_state) 
+               {
+                  /*步进电机停止状态*/
+                  case STOP:
+                  step_count = 0;  // 清零步数计数器
+                  rest = 0;        // 清零余值
+                  // 关闭通道
+                  TIM_CCxChannelCmd(MOTOR_PUL_TIM, MOTOR_PUL_CHANNEL_x, TIM_CCx_DISABLE);        
+                  __HAL_TIM_CLEAR_FLAG(&TIM_TimeBaseStructure, MOTOR_TIM_FLAG_CCx);
+      
+                  status.running = FALSE;
+                  break;
+                  /*步进电机加速状态*/
+                  case ACCEL:
+                  step_count++;
+                  srd.accel_count++;
+      
+                  new_step_delay = srd.step_delay - (((2 *srd.step_delay) + rest)/(4 * srd.accel_count + 1));//计算新(下)一步脉冲周期(时间间隔)
+                  rest = ((2 * srd.step_delay)+rest)%(4 * srd.accel_count + 1);// 计算余数，下次计算补上余数，减少误差
+                  //检查是够应该开始减速
+                     if(step_count >= srd.decel_start) {
+                        srd.accel_count = srd.decel_val;
+                        srd.run_state = DECEL;
+                     }
+                     //检查是否到达期望的最大速度
+                     else if(new_step_delay <= srd.min_delay) {
+                        last_accel_delay = new_step_delay;
+                        new_step_delay = srd.min_delay;    
+                        rest = 0;                          
+                        srd.run_state = RUN;
+                     }
+                     break;
+                  /*步进电机最大速度运行状态*/
+                  case RUN:
+      
+                     step_count++;
+                     new_step_delay = srd.min_delay;
+      
+                     //检查是否需要开始减速
+                     if(step_count >= srd.decel_start) 
+                     {
+                        srd.accel_count = srd.decel_val;
+                        //以最后一次加速的延时作为开始减速的延时
+                        new_step_delay = last_accel_delay;
+                        srd.run_state = DECEL;
+      
+                     }
+                     break;
+                  /*步进电机减速状态*/
+                  case DECEL:
+      
+                     step_count++;
+                     srd.accel_count++;
+                     new_step_delay = srd.step_delay - (((2 * srd.step_delay) + rest)/(4 * srd.accel_count + 1)); //计算新(下)一步脉冲周期(时间间隔)
+                     rest = ((2 * srd.step_delay)+rest)%(4 * srd.accel_count + 1);// 计算余数，下次计算补上余数，减少误差
+                     //检查是否为最后一步
+                     if(srd.accel_count >= 0)
+                     {
+                        srd.run_state = STOP;
+                     }
+                     break;
+               }
+               /*求得下一次间隔时间*/
+               srd.step_delay = new_step_delay;
+            }
+         }
+    }
+
+
+
+
+**stepper_move_T**
+
+****
 
 
 下载验证
