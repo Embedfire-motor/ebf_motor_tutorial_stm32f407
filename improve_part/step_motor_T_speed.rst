@@ -19,6 +19,7 @@
 3D打印机、车床等。只要是在工业上使用到步进电机的都会涉及到加减速，可见加减速算法的重要性。
 
 
+.. _梯形加减速算法原理详解:
 
 梯形加减速算法原理详解
 ------------------------------------
@@ -45,6 +46,8 @@
 
 这种算法是一种在加速过程和减速过程中加速度不变的匀变速控制算法，
 由于速度变化的曲线有折点，所以在启动、停止、匀速段中很容易产生冲击和振动。
+
+.. _算法基础概念及方程:
 
 算法基础概念及方程
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -301,6 +304,8 @@
 以上的整理说明，即使放大或者缩小了部分参数的倍数只要保证结果不变，会给计算带来很大的便利。
 
 
+.. _加减速情况分析:
+
 加减速情况分析
 """"""""""""""""""""""""""""""""""
 
@@ -432,7 +437,7 @@
 **宏定义**
 
 .. code-block:: c
-    :caption: xxx
+    :caption: 宏定义
     :linenos:
 
     #ifndef __BSP_STEP_MOTOR_INIT_H
@@ -500,7 +505,7 @@
 **速度决策**
 
 .. code-block:: c
-    :caption: xxx
+    :caption: 速度决策
     :linenos:
 
     /**
@@ -604,16 +609,159 @@
          }
     }
 
+- **8~18行** 在函数内部定义临时变量和静态变量，用于中断内算法的相关计算推导；
+- **20~23行** 判断当前是否为 **TIM_TimeBaseStructure** 中断的通道1；
+- **26~28行** 在26行中使用HAL库函数 **__HAL_TIM_GET_COUNTER()** 来获取当前计数器的数值，并且将其返回给 **tim_count**
+  并且计算下一次需要的数值，使用 **__HAL_TIM_SET_COMPARE()** 设置比较值;
+- **30~33行** 由于进入中断两次才能输出一个完整脉冲，所以在这只对进入中断的次数进行一个偶数化；
+- **37~45行** 接下来这部分就是对步进电机的运行状态的分析，在37~45行是 **STOP** 状态，在停止状态主要是关闭当前步进电机的通道以及清除中断标志位；
+- **47~65行** 这部分是加速状态，在加速状态中需要时刻计算下一次的脉冲间隔时间，由于加减速分为两种情况，这两种情况可以参考 :ref:`加减速情况分析` 
+  所以需要判断当前的步数是否到达了需要减速步数或者已经达到了设置的最大速度需要开始减速了，根据不同条件判断下一状态；
+- **67~81行** 这部分是以最大速度运行的状态；如果说在加速阶段判断下一阶段可以达到最大速度，那么就会跳转到这个状态中，那么这个状态的下一状态一定是减速，
+  所以说需要在这部分使用步数 **step_count** 的条件来判断是否到达了减速阶段；
+- **83~94行** 这部分是以减速度运行的状态，有可能是从匀速状态或者是加速状态跳转过来的，并且求得下一次的脉冲时间间隔；
+- **97行**  将新求得的间隔时间赋值给结构体成员，方便下一次调用；
+
+如果有不懂的可以在详细看一下上一章节的 :ref:`梯形加减速算法原理详解` 
 
 
 
 **stepper_move_T**
 
-****
+**stepper_move_T()** 这个函数主要是对给定步数和加减速度等参数的计算，将加减速整个过程的最大速度位置最小速度位置以及到达加减速区域的步数等。
+具体的代码实现，可以看以下代码。
+
+.. code-block:: c
+    :caption: stepper_move_T
+    :linenos:
+
+    /*! \brief 以给定的步数移动步进电机
+     *  通过计算加速到最大速度，以给定的步数开始减速
+     *  如果加速度和减速度很小，步进电机会移动很慢，还没达到最大速度就要开始减速
+     *  \param step   移动的步数 (正数为顺时针，负数为逆时针).
+     *  \param accel  加速度,如果取值为100，实际值为100*0.01*rad/sec^2=1rad/sec^2
+     *  \param decel  减速度,如果取值为100，实际值为100*0.01*rad/sec^2=1rad/sec^2
+     *  \param speed  最大速度,如果取值为100，实际值为100*0.01*rad/sec=1rad/sec
+     */
+    void stepper_move_T( int32_t step, uint32_t accel, uint32_t decel, uint32_t speed)
+    {  
+         //达到最大速度时的步数.
+         unsigned int max_s_lim;
+         //必须开始减速的步数(如果还没加速到达最大速度时)。
+         unsigned int accel_lim;
+     
+    	 /*根据步数和正负判断*/
+    	 if(step == 0)
+    	 {
+    	 		return ;
+    	 }
+    	 else if(step < 0)//逆时针
+         {
+             srd.dir = CCW;
+             step = -step;
+         }
+         else//顺时针
+         {
+             srd.dir = CW;
+         }	// 输出电机方向
+    	 	MOTOR_DIR(srd.dir);
+     
+         // 如果只移动一步
+         if(step == 1)
+         {
+             // 只移动一步
+             srd.accel_count = -1;
+             // 减速状态
+             srd.run_state = DECEL;
+             // 短延时
+             srd.step_delay = 1000;
+             // 配置电机为运行状态
+             status.running = TRUE;
+          }
+     
+         // 步数不为零才移动
+         else if(step != 0)
+         {
+    	 	// 设置最大速度极限, 计算得到min_delay用于定时器的计数器的值。
+    	 	// min_delay = (alpha / tt)/ w
+    	 	srd.min_delay = (int32_t)(A_T_x10/speed);
+     
+    	 	// 通过计算第一个(c0) 的步进延时来设定加速度，其中accel单位为0.1rad/sec^2
+    	 	// step_delay = 1/tt * sqrt(2*alpha/accel)
+    	 	// step_delay = ( tfreq*0.676/10 )*10 * sqrt( (2*alpha*100000) / (accel*10) )/100
+    	 	srd.step_delay = (int32_t)((T1_FREQ_148 * sqrt(A_SQ / accel))/10);
+     
+    	 	// 计算多少步之后达到最大速度的限制
+    	 	// max_s_lim = speed^2 / (2*alpha*accel)
+    	 	max_s_lim = (uint32_t)(speed*speed/(A_x200*accel/10));
+    	 	// 如果达到最大速度小于0.5步，我们将四舍五入为0
+    	 	// 但实际我们必须移动至少一步才能达到想要的速度
+    	 	if(max_s_lim == 0)
+    	 	{
+    	 			max_s_lim = 1;
+    	 	}
+     
+    	 	// 计算多少步之后我们必须开始减速
+    	 	// n1 = (n1+n2)decel / (accel + decel)
+    	 	accel_lim = (uint32_t)(step*decel/(accel+decel));
+    	 	// 我们必须加速至少1步才能才能开始减速.
+    	 	if(accel_lim == 0)
+    	 	{
+    	 		accel_lim = 1;
+    	 	}
+    	 	// 使用限制条件我们可以计算出第一次开始减速的位置
+    	 	//srd.decel_val为负数
+    	 	if(accel_lim <= max_s_lim)
+    	 	{
+    	 		srd.decel_val = accel_lim - step;
+    	 	}
+    	 	else{
+    	 		srd.decel_val = -(max_s_lim*accel/decel);
+    	 	}
+    	 	// 当只剩下一步我们必须减速
+    	 	if(srd.decel_val == 0)
+    	 	{
+    	 		srd.decel_val = -1;
+    	 	}
+     
+    	 	// 计算开始减速时的步数
+    	 	srd.decel_start = step + srd.decel_val;
+     
+    	 	// 如果最大速度很慢，我们就不需要进行加速运动
+    	 	if(srd.step_delay <= srd.min_delay)
+    	 	{
+    	 		srd.step_delay = srd.min_delay;
+    	 		srd.run_state = RUN;
+    	 	}
+    	 	else
+    	 	{
+    	 		srd.run_state = ACCEL;
+    	 	}
+    	 	// 复位加速度计数值
+    	 	srd.accel_count = 0;
+    	 	status.running = TRUE;
+    	 }
+    	 /*获取当前计数值*/
+    	 int tim_count=__HAL_TIM_GET_COUNTER(&TIM_TimeBaseStructure);
+    	 /*在当前计数值基础上设置定时器比较值*/
+    	 __HAL_TIM_SET_COMPARE(&TIM_TimeBaseStructure,MOTOR_PUL_CHANNEL_x,tim_count+srd.step_delay); 
+    	 /*使能定时器通道*/
+    	 TIM_CCxChannelCmd(MOTOR_PUL_TIM, MOTOR_PUL_CHANNEL_x, TIM_CCx_ENABLE);
+    	 MOTOR_EN(ON);
+    }
+
+
+- **11~15行** 定义最大速度需要的步数和开始减速的步数变量；
+- **17~30行** 这部分是对步数的判断和方向的设置；
+- **46~106行** 这部分是针对加减速模型所需要的的一些计算；具体推导过程可以参考 :ref:`算法基础概念及方程` 章节中的内容；
+- **108~113行** 获取当前计数值，根据计算设置第一次的比较值并开启使能驱动器；
+
 
 
 下载验证
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+将代码下载到开发板中，会发现电机正转2圈后反转两圈
 
 
 
