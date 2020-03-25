@@ -106,7 +106,7 @@
 
 当Q\ :sub:`1`\和\ :sub:`2`\同时导通时，电流将从电源先后经过Q\ :sub:`1`\和Q\ :sub:`2`\，
 然后直接流到电源负极，在这个回路中除了三极管以外就没有其他负载，这时电流可能会达到最大值，此时可能会烧毁
-三极管，同理，当Q\ :sub:`3`\和\ :sub:`4`\同时导通时，也会出现相同的状况。这样的情况肯定是不能发生的，
+三极管和电源，同理，当Q\ :sub:`3`\和\ :sub:`4`\同时导通时，也会出现相同的状况。这样的情况肯定是不能发生的，
 但是我们写程序又是三分写代码七分在调试，这就难免会有写错代码将同一测得三极管导通的情况，为此我们就需要
 从硬件上来避免这个问题。下面电路图是改进后的驱动电路图。
 
@@ -114,10 +114,55 @@
    :align: center
    :alt: 三极管搭建H桥改进电路
 
-**根据驱动芯片来讲解**
+与改进前的电路相比，在上面的改进电路中新增加了两个非门和4个与门，经过这样的组合就可以实现一个信号控制两个同一侧的三极管，
+并且可以保证在同一侧中两个三级管不会同时导通，在同一时刻只会有一个三极管是导通的。
 
-驱动芯片与驱动电机设计与分析
+我们来分析一下电信号的变化：在ENABLE脚接入高电平，在IN1脚接入高电平，在经过第一个非门后，AND1的2脚就是低电平，
+再经过AND1与门后AND1的3脚就是低电平，所以Q1截止。而AND2的1脚和2脚都是高电平，所以AND2的3脚也是高电平，
+这样Q2就导通了。在IN2接入低电平，同理分析可得，Q3导通Q4截止。在IN1和IN2处分别接入低电平和高电平，
+则Q1和Q4导通，Q3和Q2截止。当IN1和IN2都接入高电平或者高电平时都只会同时导通上面或者下面的两个三极管，
+不会出现同一侧的三极管同时导通的情况。
+
+驱动芯片分析
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+通常在驱动电机的时候我们会选择集成H桥的IC，因为H桥使用分立元件搭建还是比较麻烦，增加了硬件设计难度，
+当然如果集成IC无法满足我们的功率要求时，还是需要我们自己使用MOS管、三极管等元件来搭建H桥电路，
+这样的分立元件搭建的H桥一般驱动能力都会比集成IC要高。当我们在选择集成IC时，
+我们需要考虑集成IC是否能满足电机的驱动电压要求，是否能承受电机工作时的电流等情况。
+
+L298N驱动芯片
+"""""""""""""""""
+
+L298N是ST公司的产品，内部包含4通道逻辑驱动电路，是一种二相和四相电机的专门驱动芯片，
+即内含两个H桥的高电压大电流双桥式驱动器，接收标准的TTL逻辑电平信号，可驱动4.5V~46V、
+2A一下的电机，电流峰值输出可达3A，其内部结构如下图所示。
+
+.. image:: ../media/L298N_structure_chart.png
+   :align: center
+   :alt: L298N内部结构图
+
+其工作原理与上面的讲解的H桥原理一样，这里不再赘述。L298N引脚图如下图所示。
+
+.. image:: ../media/L298N_pin.png
+   :align: center
+   :alt: L298N引脚图
+
+L298N逻辑功能表。
+
+===  ===  ===  ========
+IN1  IN2  ENA  电机状态
+===  ===  ===  ========
+×    ×    0    电机停止
+1    0    1    电机正转
+0    1    1    电机反转
+0    0    1    电机停止
+1    1    1    电机停止
+===  ===  ===  ========
+
+IN3，IN4的逻辑图与上表相同。由上表可知ENA为低电平时，输入电平对电机控制不起作用，
+当ENA为高电平，输入电平为一高一低，电机正或反转。同为低电平电机停止，同为高电平电机停止。
+L298N的应用电路图将在后面硬件设计小节讲解。
 
 直流有刷减速电机控制实现
 -----------------------------------
@@ -148,6 +193,112 @@ D(占空比) = T\ :sub:`1`\/T*100%
 硬件设计
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+主控有刷电机接口原理图如下图所示，有刷电机接口与无刷接口使用的是同一个接口，舍去了其中一些多余的接口，
+用到了两个定时器通道，编码器、两路ADC采集通道（后续章节讲解）。本节实验只用到了TIM1的CH1和CH2，
+即PA8和PA9来输出PWM信号来控制电机，注意主控板需要和电机驱动板供地。
+
+.. image:: ../media/bldcm_interface_circuit.png
+   :align: center
+   :alt: 主板接口
+
+L298N
+""""""""""""""""""""""""
+
+直流有刷电机驱动板-野火
+""""""""""""""""""""""""
+
+野火有刷电机驱动板是野火使用MOS管搭建的大功率H桥电机驱动板，实物图如下图所示。
+
+.. image:: ../media/yh_dc_brush_motor_mos_h.png
+   :align: center
+   :alt: 野火有刷电机驱动板
+
+驱动板可支持12V~70V的宽电压输入，10A过电流保护电路，超过10A可自动禁用电机控制信号，最高功率支持700W。
+同时还具有电流采样电路、编码器接口和电源电压检测电路等等，本小节主要讲解电机驱动部分电路，
+其他功能将在后续章节中讲解。
+
+PWM控制信号使用了TLP2362高速光耦进行了隔离，SD控制信号使用了EL357N光耦进行了隔离，如下图所示。
+
+.. image:: ../media/pwm_sd_opto-isolator.png
+   :align: center
+   :alt: PWM和SD信号光耦隔离
+
+需要注意的是TLP2362的输出信号与输入信号是反向的，真值表如下表所示。即输入高电平时，LED灯打开，输出为低电平；
+输入低电平时，LED灯关闭，输出为高电平；这需要我们在初始化定时器的时候注意这个问题。其中SD的信号并没有反向，
+输入为高电平时输出也为高电平，输入为低电平时输出也为低电平。
+
+.. list-table:: TLP2362输入输出真值表
+    :widths: 15 10 30
+    :header-rows: 1
+
+    * - Input
+      - LED
+      - Output
+    * - H
+      - ON
+      - L
+    * - L
+      - OFF
+      - H
+
+下图是使用MOS管搭建的H桥电路，使用两个EG2104驱动四个MOS管。
+
+.. image:: ../media/dcm_H-bridge.png
+   :align: center
+   :alt: H桥电路
+
+EG2104S主要功能有逻辑信号输入处理、死区时间控制、电平转换功能、悬浮自举电源结构和上下桥图腾柱式输出。
+逻辑信号输入端高电平阀值为 2.5V 以上，低电平阀值为 1.0V 以下，要求逻辑信号的输出电流小，
+可以使MCU输出逻辑信号直接连接到EG2104S的输入通道上。EG2104S芯片有一个shutdown引脚，
+逻辑输入控制信号低电平有效，控制强行使LO、HO输出低电平。这样可以直接使用这个引脚做软件控制电机的旋转与停止，
+还可以实现硬件的限流保护（后续章节分析保护电路），输入信号和输出信号逻辑真值表如下表所示。
+
+
+.. list-table:: EG2104S输入信号和输出信号逻辑真值表
+    :widths: 10 10 20 20
+    :header-rows: 1
+
+    * - IN（引脚2）
+      - SD（引脚3）
+      - HO（引脚7）
+      - LO（引脚5）
+    * - L
+      - L
+      - L
+      - L
+    * - H
+      - L
+      - L
+      - L
+    * - L
+      - H
+      - L
+      - H
+    * - H
+      - H
+      - H
+      - L
+
+从真值表可知，在输入逻辑信号SD为“L”时，不管IN为“H”或者“L”情况下，驱动器控制输出HO、LO同时为“L”，
+上、下功率管同时关断；当输入逻辑信号SD为“H”、IN为“L”时，HO输出为“L”，LO输出为“H”；
+当输入逻辑信号SD为“H”、IN 为“H”时，HO输出为“H”，LO输出为“L”。
+
+EG2104S内部集成了死区时控制电路，死区时间波形图如下图所示，其中DT的典型值为640ns。
+
+.. image:: ../media/EG2104S_dead-time.png
+   :align: center
+   :alt: 死区控制电路
+
+EG2104S采用自举悬浮驱动电源结构大大简化了驱动电源设计，
+只用一路电源电压VCC即可完成高端N沟道MOS管和低端N沟道MOS管两个功率开关器件的驱动，给实际应用带来极大的方便。
+EG2104S自举电路结构如下图所示，EG2104S可以使用外接一个自举二极管和一个自举电容自动完成自举升压功能，
+假定在下管开通、上管关断期间VC自举电容已充到足够的电压（Vc=VCC），当HO输出高电平时上管开通、下管关断时，
+VC自举电容上的电压将等效一个电压源作为内部驱动器VB和VS的电源，完成高端N沟道MOS管的驱动。
+
+.. image:: ../media/bootstrap_circuit_structure.png
+   :align: center
+   :alt: 自举结构图
+
 软件设计
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -171,33 +322,30 @@ bsp_motor_control.c和bsp_motor_control.h文件用来存定时器驱动和电机
    :linenos:
 
     /*宏定义*/
-    #define GENERAL_TIM                        	TIM2
-    #define GENERAL_TIM_GPIO_AF                 GPIO_AF1_TIM2
-    #define GENERAL_TIM_CLK_ENABLE()  					__TIM2_CLK_ENABLE()
+    #define PWM_TIM                        	TIM1
+    #define PWM_TIM_GPIO_AF                 GPIO_AF1_TIM1
+    #define PWM_TIM_CLK_ENABLE()  					__TIM1_CLK_ENABLE()
 
-    #define PWM_CHANNEL_1                       TIM_CHANNEL_1
-    #define PWM_CHANNEL_2                       TIM_CHANNEL_2
+    #define PWM_CHANNEL_1                   TIM_CHANNEL_1
+    #define PWM_CHANNEL_2                   TIM_CHANNEL_2
 
     /* 累计 TIM_Period个后产生一个更新或者中断*/		
     /* 当定时器从0计数到PWM_PERIOD_COUNT，即为PWM_PERIOD_COUNT+1次，为一个定时周期 */
-    #define PWM_PERIOD_COUNT     5599
+    #define PWM_PERIOD_COUNT     (1000)
 
-    /* 通用控制定时器时钟源TIMxCLK = HCLK/2=84MHz */
+    /* 通用控制定时器时钟源TIMxCLK = HCLK=168MHz */
     /* 设定定时器频率为=TIMxCLK/(PWM_PRESCALER_COUNT+1) */
-    #define PWM_PRESCALER_COUNT     0
+    #define PWM_PRESCALER_COUNT     (9)
 
     /*PWM引脚*/
-    #define GENERAL_TIM_CH1_GPIO_PORT           GPIOA
-    #define GENERAL_TIM_CH1_PIN                 GPIO_PIN_15
+    #define PWM_TIM_CH1_GPIO_PORT           GPIOA
+    #define PWM_TIM_CH1_PIN                 GPIO_PIN_8
 
-    #define GENERAL_TIM_CH2_GPIO_PORT           GPIOB
-    #define GENERAL_TIM_CH2_PIN                 GPIO_PIN_3
+    #define PWM_TIM_CH2_GPIO_PORT           GPIOA
+    #define PWM_TIM_CH2_PIN                 GPIO_PIN_9
 
-    #define GENERAL_TIM_CH3_GPIO_PORT           GPIOB
-    #define GENERAL_TIM_CH3_PIN                 GPIO_PIN_10
-
-    #define GENERAL_TIM_CH4_GPIO_PORT           GPIOB
-    #define GENERAL_TIM_CH4_PIN                 GPIO_PIN_11
+    #define PWM_TIM_CH3_GPIO_PORT           GPIOA
+    #define PWM_TIM_CH3_PIN                 GPIO_PIN_10
 
 使用宏定义非常方便程序升级、移植。如果使用不同的定时器IO，修改这些宏即可。
 
@@ -209,12 +357,12 @@ bsp_motor_control.c和bsp_motor_control.h文件用来存定时器驱动和电机
 
     static void TIMx_GPIO_Config(void) 
     {
-      GPIO_InitTypeDef GPIO_InitStruct;
+    GPIO_InitTypeDef GPIO_InitStruct;
       
       /* 定时器通道功能引脚端口时钟使能 */
       
       __HAL_RCC_GPIOA_CLK_ENABLE();
-      __HAL_RCC_GPIOB_CLK_ENABLE();
+      __HAL_RCC_GPIOA_CLK_ENABLE();
       
       /* 定时器通道1功能引脚IO初始化 */
       /*设置输出类型*/
@@ -222,15 +370,15 @@ bsp_motor_control.c和bsp_motor_control.h文件用来存定时器驱动和电机
       /*设置引脚速率 */ 
       GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
       /*设置复用*/
-      GPIO_InitStruct.Alternate = GENERAL_TIM_GPIO_AF;
+      GPIO_InitStruct.Alternate = PWM_TIM_GPIO_AF;
       
       /*选择要控制的GPIO引脚*/	
-      GPIO_InitStruct.Pin = GENERAL_TIM_CH1_PIN;
+      GPIO_InitStruct.Pin = PWM_TIM_CH1_PIN;
       /*调用库函数，使用上面配置的GPIO_InitStructure初始化GPIO*/
-      HAL_GPIO_Init(GENERAL_TIM_CH1_GPIO_PORT, &GPIO_InitStruct);
+      HAL_GPIO_Init(PWM_TIM_CH1_GPIO_PORT, &GPIO_InitStruct);
 
-      GPIO_InitStruct.Pin = GENERAL_TIM_CH2_PIN;	
-      HAL_GPIO_Init(GENERAL_TIM_CH2_GPIO_PORT, &GPIO_InitStruct);
+      GPIO_InitStruct.Pin = PWM_TIM_CH2_PIN;	
+      HAL_GPIO_Init(PWM_TIM_CH2_GPIO_PORT, &GPIO_InitStruct);
       
     }
 
@@ -247,29 +395,30 @@ bsp_motor_control.c和bsp_motor_control.h文件用来存定时器驱动和电机
       TIM_OC_InitTypeDef  TIM_OCInitStructure;  
       
       /*使能定时器*/
-      GENERAL_TIM_CLK_ENABLE();
+      PWM_TIM_CLK_ENABLE();
       
-      TIM_TimeBaseStructure.Instance = GENERAL_TIM;
+      TIM_TimeBaseStructure.Instance = PWM_TIM;
       /* 累计 TIM_Period个后产生一个更新或者中断*/		
       //当定时器从0计数到PWM_PERIOD_COUNT，即为PWM_PERIOD_COUNT+1次，为一个定时周期
-      TIM_TimeBaseStructure.Init.Period = PWM_PERIOD_COUNT;
+      TIM_TimeBaseStructure.Init.Period = PWM_PERIOD_COUNT - 1;
       // 通用控制定时器时钟源TIMxCLK = HCLK/2=84MHz 
       // 设定定时器频率为=TIMxCLK/(PWM_PRESCALER_COUNT+1)
-      TIM_TimeBaseStructure.Init.Prescaler = PWM_PRESCALER_COUNT;	
+      TIM_TimeBaseStructure.Init.Prescaler = PWM_PRESCALER_COUNT - 1;	
       
       /*计数方式*/
       TIM_TimeBaseStructure.Init.CounterMode = TIM_COUNTERMODE_UP;
       /*采样时钟分频*/
       TIM_TimeBaseStructure.Init.ClockDivision=TIM_CLOCKDIVISION_DIV1;
       /*初始化定时器*/
-      HAL_TIM_Base_Init(&TIM_TimeBaseStructure);
+      HAL_TIM_PWM_Init(&TIM_TimeBaseStructure);
       
       /*PWM模式配置*/
-      TIM_OCInitStructure.OCMode = TIM_OCMODE_PWM1;//配置为PWM模式1
-      TIM_OCInitStructure.Pulse = PWM_PERIOD_COUNT/2;//默认占空比为50%
-      TIM_OCInitStructure.OCFastMode = TIM_OCFAST_DISABLE;
-      /*当定时器计数值小于CCR1_Val时为高电平*/
-      TIM_OCInitStructure.OCPolarity = TIM_OCPOLARITY_HIGH;	
+      TIM_OCInitStructure.OCMode = TIM_OCMODE_PWM1;
+      TIM_OCInitStructure.Pulse = 0;
+      TIM_OCInitStructure.OCPolarity = TIM_OCPOLARITY_LOW;
+      TIM_OCInitStructure.OCNPolarity = TIM_OCPOLARITY_LOW;
+      TIM_OCInitStructure.OCIdleState = TIM_OCIDLESTATE_SET;
+      TIM_OCInitStructure.OCNIdleState = TIM_OCNIDLESTATE_RESET;
       
       /*配置PWM通道*/
       HAL_TIM_PWM_ConfigChannel(&TIM_TimeBaseStructure, &TIM_OCInitStructure, PWM_CHANNEL_1);
@@ -277,7 +426,7 @@ bsp_motor_control.c和bsp_motor_control.h文件用来存定时器驱动和电机
       HAL_TIM_PWM_Start(&TIM_TimeBaseStructure,PWM_CHANNEL_1);
       
       /*配置脉宽*/
-      TIM_OCInitStructure.Pulse = PWM_PERIOD_COUNT/2;//默认占空比为50%
+      TIM_OCInitStructure.Pulse = PWM_PERIOD_COUNT/2;    // 默认占空比为50%
       /*配置PWM通道*/
       HAL_TIM_PWM_ConfigChannel(&TIM_TimeBaseStructure, &TIM_OCInitStructure, PWM_CHANNEL_2);
       /*开始输出PWM*/
@@ -328,8 +477,8 @@ ChannelPulse是我们定义的一个无符号16位整形的全局变量，用来
    :linenos:
    
     /* 设置速度（占空比） */
-    #define SET_FWD_COMPAER(ChannelPulse)     TIM2_SetPWM_pulse(PWM_CHANNEL_1,ChannelPulse)    // 设置比较寄存器的值
-    #define SET_REV_COMPAER(ChannelPulse)     TIM2_SetPWM_pulse(PWM_CHANNEL_2,ChannelPulse)    // 设置比较寄存器的值
+    #define SET_FWD_COMPAER(ChannelPulse)     TIM1_SetPWM_pulse(PWM_CHANNEL_1,ChannelPulse)    // 设置比较寄存器的值
+    #define SET_REV_COMPAER(ChannelPulse)     TIM1_SetPWM_pulse(PWM_CHANNEL_2,ChannelPulse)    // 设置比较寄存器的值
 
     /* 使能输出 */
     #define MOTOR_FWD_ENABLE()      HAL_TIM_PWM_Start(&TIM_TimeBaseStructure,PWM_CHANNEL_1);    // 使能 PWM 通道 1
@@ -359,10 +508,11 @@ ChannelPulse是我们定义的一个无符号16位整形的全局变量，用来
       }
     }
 
-根据电机的旋转方向来设置电机的速度（占空比），并记录下设置的占空比。
+根据电机的旋转方向来设置电机的速度（占空比），并记录下设置的占空比，方便在切换旋转
+方向时设置另一路为相同的占空比。
 
 .. code-block:: c
-   :caption: 设置电机速度
+   :caption: 设置电机方向
    :linenos:
 
     void set_motor_direction(motor_dir_t dir)
@@ -372,16 +522,17 @@ ChannelPulse是我们定义的一个无符号16位整形的全局变量，用来
       if (direction == MOTOR_FWD)
       {
         SET_FWD_COMPAER(dutyfactor);     // 设置速度
-        SET_REV_COMPAER(0);              // 设置速度
+        SET_REV_COMPAER(0);              // 设置占空比为 0
       }
+      
       else
       {
         SET_FWD_COMPAER(0);              // 设置速度
-        SET_REV_COMPAER(dutyfactor);     // 设置速度
+        SET_REV_COMPAER(dutyfactor);     // 设置占空比为 0
       }
     }
 
-设置电机旋转方向，并设置速度。
+将一路PWM的占空比设置为0，另一路用于设置速度。
 
 .. code-block:: c
    :caption: main
@@ -401,25 +552,36 @@ ChannelPulse是我们定义的一个无符号16位整形的全局变量，用来
       /* 通用定时器初始化并配置PWM输出功能 */
       TIMx_Configuration();
       
-      TIM2_SetPWM_pulse(PWM_CHANNEL_1,0);
-      TIM2_SetPWM_pulse(PWM_CHANNEL_2,0);
+      TIM1_SetPWM_pulse(PWM_CHANNEL_1,0);
+      TIM1_SetPWM_pulse(PWM_CHANNEL_2,0);
       
       while(1)
       {
         /* 扫描KEY1 */
-        if( Key_Scan(KEY1_GPIO_PORT,KEY1_PIN) == KEY_ON  )
+        if( Key_Scan(KEY1_GPIO_PORT, KEY1_PIN) == KEY_ON)
         {
           /* 增大占空比 */
-          ChannelPulse+=500;
+          ChannelPulse += 50;
           
-          if(ChannelPulse>PWM_PERIOD_COUNT)
-            ChannelPulse=PWM_PERIOD_COUNT;
+          if(ChannelPulse > PWM_PERIOD_COUNT)
+            ChannelPulse = PWM_PERIOD_COUNT;
           
           set_motor_speed(ChannelPulse);
         }
         
         /* 扫描KEY2 */
-        if( Key_Scan(KEY2_GPIO_PORT,KEY2_PIN) == KEY_ON  )
+        if( Key_Scan(KEY2_GPIO_PORT, KEY2_PIN) == KEY_ON)
+        {
+          if(ChannelPulse < 50)
+            ChannelPulse = 0;
+          else
+            ChannelPulse -= 50;
+          
+          set_motor_speed(ChannelPulse);
+        }
+        
+        /* 扫描KEY3 */
+        if( Key_Scan(KEY3_GPIO_PORT, KEY3_PIN) == KEY_ON)
         {
           /* 转换方向 */
           set_motor_direction( (++i % 2) ? MOTOR_FWD : MOTOR_REV);
@@ -428,7 +590,33 @@ ChannelPulse是我们定义的一个无符号16位整形的全局变量，用来
     }
 
 首先初始化系统时钟，然后初始化定时器和按键，将占空比设置为0，即电机默认不转动。
-在死循环里面扫描按键，KEY1增加速度（占空比），KEY2减少速度（占空比），KEY3切换电机旋转方向。
+在死循环里面扫描按键，KEY1按键按下增加速度（占空比），KEY2按键按下减少速度（占空比），
+KEY3按键按下切换电机旋转方向。
 
 下载验证
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+如果有条件的话，这里我们先不连接电机，先通过示波器连接到开发板的PWM输出引脚上，通过示波器来观察PWM
+的变化情况:
+
+- 使用DAP连接开发板到电脑；
+- 使用示波器的CH1连接到PA15，CH2连接到PB3，注意示波器要与开发板供地；
+- 给开发板供电，编译下载配套源码，复位开发板。
+
+上电后我们通过示波器可以观察到两个通道都是低电平，当按下KEY1时，可以增加CH1通道的占空比，如下图所示。
+
+.. image:: ../media/dc_motor_duty_cycle1.jpg
+   :align: center
+   :alt: 示波器观察PWM输出情况
+
+在上图中黄色波形为CH1通道，蓝色波形为CH2通道，按下一次KEY1后，周期设置为500，所以CH1的占空比为
+500/5600*100%=9%。通过波形计算也与理论相符，这说明我们的PWM的配置是正确的，其中CH2通道的波形
+一直为低电平。当CH1和CH2都为低电平时，电机停止转动。当CH1上的平均电压大于电机的启动电压后电机就
+可以转动了，电源电压为12V，占空比为D,则平均电压为：12V*D。当按下KEY3后两通道输出相反，CH1一直为
+低电平，CH2为PWM波，电机反向转动。
+
+在确定PWM输出正确后我们就可以接上电机进行验证我们的程序了，实物连接如下图所示。
+
+.. image:: ../media/dc_motor_key_control.jpg
+   :align: center
+   :alt: 电机连接实物图
