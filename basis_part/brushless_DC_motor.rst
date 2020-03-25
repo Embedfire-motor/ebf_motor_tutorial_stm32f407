@@ -210,7 +210,479 @@ V=(Ua-IaRa)/CEφ
 
 软件设计
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+这里只讲解核心的部分代码，有些变量的设置，头文件的包含等并没有涉及到，完整的代码请
+参考本章配套的工程。我们创建了四个文件：bsp_motor_tim.c、bsp_motor_tim.h、
+bsp_bldcm_control.c和bsp_bldcmr_control.h文件用来存定时器驱动和电机控制程序及相关宏定义
+
+编程要点
+"""""""""""""""""
+
+(1) 高级定时器 IO 配置
+
+(2) 定时器时基结构体TIM_HandleTypeDef配置
+
+(3) 定时器输出比较结构体TIM_OC_InitTypeDef配置
+
+(4) 根据电机的换相表编写换相中断回调函数
+
+(5) 根据定时器定义电机控制相关函数
+
+.. code-block:: c
+   :caption: bsp_motor_tim.h-宏定义
+   :linenos:
+
+   /* 电机控制定时器 */
+   #define MOTOR_TIM           				      TIM8
+   #define MOTOR_TIM_CLK_ENABLE()  			    __TIM8_CLK_ENABLE()
+   extern TIM_HandleTypeDef  htimx_bldcm;
+
+   /* 累计 TIM_Period个后产生一个更新或者中断		
+      当定时器从0计数到5599，即为5600次，为一个定时周期 */
+   #define PWM_PERIOD_COUNT     (5600)
+
+   /* 高级控制定时器时钟源TIMxCLK = HCLK=168MHz 
+      设定定时器频率为=TIMxCLK/(PWM_PRESCALER_COUNT+1)/PWM_PERIOD_COUNT = 15KHz*/
+   #define PWM_PRESCALER_COUNT     (2)
+
+   /* TIM8通道1输出引脚 */
+   #define MOTOR_OCPWM1_PIN           		    GPIO_PIN_5
+   #define MOTOR_OCPWM1_GPIO_PORT     		    GPIOI
+   #define MOTOR_OCPWM1_GPIO_CLK_ENABLE() 	  __GPIOI_CLK_ENABLE()
+   #define MOTOR_OCPWM1_AF					          GPIO_AF3_TIM8
+
+   /* TIM8通道2输出引脚 */
+   #define MOTOR_OCPWM2_PIN           		    GPIO_PIN_6
+   #define MOTOR_OCPWM2_GPIO_PORT     		    GPIOI
+   #define MOTOR_OCPWM2_GPIO_CLK_ENABLE() 	  __GPIOI_CLK_ENABLE()
+   #define MOTOR_OCPWM2_AF					          GPIO_AF3_TIM8
+
+   /* TIM8通道3输出引脚 */
+   #define MOTOR_OCPWM3_PIN           		    GPIO_PIN_7
+   #define MOTOR_OCPWM3_GPIO_PORT     		    GPIOI
+   #define MOTOR_OCPWM3_GPIO_CLK_ENABLE() 	  __GPIOI_CLK_ENABLE()
+   #define MOTOR_OCPWM3_AF					          GPIO_AF3_TIM8
+
+   /* TIM8通道1互补输出引脚 */
+   #define MOTOR_OCNPWM1_PIN            		  GPIO_PIN_13
+   #define MOTOR_OCNPWM1_GPIO_PORT      		  GPIOH
+   #define MOTOR_OCNPWM1_GPIO_CLK_ENABLE()	  __GPIOH_CLK_ENABLE()
+   #define MOTOR_OCNPWM1_AF					        GPIO_AF3_TIM8
+
+   /* TIM8通道2互补输出引脚 */
+   #define MOTOR_OCNPWM2_PIN            		  GPIO_PIN_14
+   #define MOTOR_OCNPWM2_GPIO_PORT      		  GPIOH
+   #define MOTOR_OCNPWM2_GPIO_CLK_ENABLE()	  __GPIOH_CLK_ENABLE()
+   #define MOTOR_OCNPWM2_AF					        GPIO_AF3_TIM8
+
+   /* TIM8通道3互补输出引脚 */
+   #define MOTOR_OCNPWM3_PIN            		  GPIO_PIN_15
+   #define MOTOR_OCNPWM3_GPIO_PORT      		  GPIOH
+   #define MOTOR_OCNPWM3_GPIO_CLK_ENABLE()	  __GPIOH_CLK_ENABLE()
+   #define MOTOR_OCNPWM3_AF					        GPIO_AF3_TIM8
+
+   /* 霍尔传感器定时器 */
+   #define HALL_TIM           				      TIM5
+   #define HALL_TIM_CLK_ENABLE()  			    __TIM5_CLK_ENABLE()
+
+   extern TIM_HandleTypeDef htimx_hall;
+
+   /* 累计 TIM_Period个后产生一个更新或者中断		
+      当定时器从0计数到4999，即为5000次，为一个定时周期 */
+   #define HALL_PERIOD_COUNT     (0xFFFF)
+
+   /* 高级控制定时器时钟源TIMxCLK = HCLK / 2 = 84MHz
+      设定定时器频率为 = TIMxCLK / (PWM_PRESCALER_COUNT + 1) / PWM_PERIOD_COUNT = 10.01Hz
+      周期 T = 100ms */
+   #define HALL_PRESCALER_COUNT     (128-1)
+
+   /* TIM5 通道 1 引脚 */
+   #define HALL_INPUT1_PIN           		    GPIO_PIN_10
+   #define HALL_INPUT1_GPIO_PORT     		    GPIOH
+   #define HALL_INPUT1_GPIO_CLK_ENABLE() 	  __GPIOH_CLK_ENABLE()
+   #define HALL_INPUT1_AF					          GPIO_AF2_TIM5
+
+   /* TIM5 通道 2 引脚 */
+   #define HALL_INPUT2_PIN           		    GPIO_PIN_11
+   #define HALL_INPUT2_GPIO_PORT     		    GPIOH
+   #define HALL_INPUT2_GPIO_CLK_ENABLE() 	  __GPIOH_CLK_ENABLE()
+   #define HALL_INPUT2_AF					          GPIO_AF2_TIM5
+
+   /* TIM5 通道 3 引脚 */
+   #define HALL_INPUT3_PIN           		    GPIO_PIN_12
+   #define HALL_INPUT3_GPIO_PORT     		    GPIOH
+   #define HALL_INPUT3_GPIO_CLK_ENABLE() 	  __GPIOH_CLK_ENABLE()
+   #define HALL_INPUT3_AF					          GPIO_AF2_TIM5
+
+   #define HALL_TIM_IRQn                    TIM5_IRQn
+   #define HALL_TIM_IRQHandler              TIM5_IRQHandler
+
+使用宏定义非常方便程序升级、移植。如果使用不同的定时器IO，修改这些宏即可。
+
+定时器复用功能引脚初始化
+
+.. code-block:: c
+   :caption: 定时器复用功能引脚初始化
+   :linenos:
+
+   static void TIMx_GPIO_Config(void) 
+   {
+   /*定义一个GPIO_InitTypeDef类型的结构体*/
+   GPIO_InitTypeDef GPIO_InitStructure;
+
+   /*开启定时器相关的GPIO外设时钟*/
+   MOTOR_OCPWM1_GPIO_CLK_ENABLE();
+   MOTOR_OCNPWM1_GPIO_CLK_ENABLE();
+   MOTOR_OCPWM2_GPIO_CLK_ENABLE();
+   MOTOR_OCNPWM2_GPIO_CLK_ENABLE();
+   MOTOR_OCPWM3_GPIO_CLK_ENABLE();
+   MOTOR_OCNPWM3_GPIO_CLK_ENABLE();
+
+   /* 定时器功能引脚初始化 */															   
+   GPIO_InitStructure.Pull = GPIO_NOPULL;
+   GPIO_InitStructure.Speed = GPIO_SPEED_HIGH;
+   GPIO_InitStructure.Mode = GPIO_MODE_OUTPUT_PP;   // 推挽输出模式
+
+   GPIO_InitStructure.Pin = MOTOR_OCNPWM1_PIN;
+   HAL_GPIO_Init(MOTOR_OCNPWM1_GPIO_PORT, &GPIO_InitStructure);	
+
+   GPIO_InitStructure.Pin = MOTOR_OCNPWM2_PIN;	
+   HAL_GPIO_Init(MOTOR_OCNPWM2_GPIO_PORT, &GPIO_InitStructure);
+
+   GPIO_InitStructure.Pin = MOTOR_OCNPWM3_PIN;	
+   HAL_GPIO_Init(MOTOR_OCNPWM3_GPIO_PORT, &GPIO_InitStructure);	
+
+   /* 通道 2 */
+   GPIO_InitStructure.Mode = GPIO_MODE_AF_PP;  
+
+   GPIO_InitStructure.Pin = MOTOR_OCPWM1_PIN;
+   GPIO_InitStructure.Alternate = MOTOR_OCPWM1_AF;	
+   HAL_GPIO_Init(MOTOR_OCPWM1_GPIO_PORT, &GPIO_InitStructure);
+
+   GPIO_InitStructure.Pin = MOTOR_OCPWM2_PIN;	
+   GPIO_InitStructure.Alternate = MOTOR_OCPWM2_AF;	
+   HAL_GPIO_Init(MOTOR_OCPWM2_GPIO_PORT, &GPIO_InitStructure);
+
+   /* 通道 3 */
+   GPIO_InitStructure.Pin = MOTOR_OCPWM3_PIN;	
+   GPIO_InitStructure.Alternate = MOTOR_OCPWM3_AF;	
+   HAL_GPIO_Init(MOTOR_OCPWM3_GPIO_PORT, &GPIO_InitStructure);
+   }
+
+定时器通道引脚使用之前必须设定相关参数，这选择复用功能，并指定到对应的定时器。
+使用GPIO之前都必须开启相应端口时钟。在上面我们将TIM1的CH1、CH2和CH3配置为PWM模式，
+我对其对应的互补输出通道配置为推挽输出模式，所以在三相六臂驱动电路中，对于下桥臂是始终开启的，
+即这里我们使用的是H_PWM-L_ON调制方式。
+
+.. code-block:: c
+   :caption: 电机控制定时器模式配置
+   :linenos:
+
+   static void TIM_Mode_Config(void)
+   {
+      // 开启TIMx_CLK,x[1,8] 
+      MOTOR_TIM_CLK_ENABLE(); 
+      /* 定义定时器的句柄即确定定时器寄存器的基地址*/
+      htimx_bldcm.Instance = MOTOR_TIM;
+      /* 累计 TIM_Period个后产生一个更新或者中断*/		
+      //当定时器从0计数到999，即为1000次，为一个定时周期
+      htimx_bldcm.Init.Period = PWM_PERIOD_COUNT - 1;
+      // 高级控制定时器时钟源TIMxCLK = HCLK=216MHz 
+      // 设定定时器频率为=TIMxCLK/(TIM_Prescaler+1)=1MHz
+      htimx_bldcm.Init.Prescaler = PWM_PRESCALER_COUNT - 1;	
+      // 采样时钟分频
+      htimx_bldcm.Init.ClockDivision=TIM_CLOCKDIVISION_DIV1;
+      // 计数方式
+      htimx_bldcm.Init.CounterMode=TIM_COUNTERMODE_UP;
+      // 重复计数器
+      htimx_bldcm.Init.RepetitionCounter=0;	
+      // 初始化定时器TIMx, x[1,8]
+      HAL_TIM_PWM_Init(&htimx_bldcm);
+
+      /*PWM模式配置*/
+      //配置为PWM模式1
+      TIM_OCInitStructure.OCMode = TIM_OCMODE_PWM1;
+      TIM_OCInitStructure.Pulse = 200;
+      TIM_OCInitStructure.OCPolarity = TIM_OCPOLARITY_HIGH;
+      TIM_OCInitStructure.OCNPolarity = TIM_OCNPOLARITY_HIGH;
+      TIM_OCInitStructure.OCIdleState = TIM_OCIDLESTATE_SET;
+      TIM_OCInitStructure.OCNIdleState = TIM_OCNIDLESTATE_RESET;
+
+      HAL_TIM_PWM_ConfigChannel(&htimx_bldcm,&TIM_OCInitStructure,TIM_CHANNEL_1);    // 初始化通道 1 输出 PWM 
+      HAL_TIM_PWM_ConfigChannel(&htimx_bldcm,&TIM_OCInitStructure,TIM_CHANNEL_2);    // 初始化通道 2 输出 PWM
+      HAL_TIM_PWM_ConfigChannel(&htimx_bldcm,&TIM_OCInitStructure,TIM_CHANNEL_3);    // 初始化通道 3 输出 PWM
+
+      /* 关闭定时器通道1输出PWM */
+      HAL_TIM_PWM_Stop(&htimx_bldcm,TIM_CHANNEL_1);
+
+      /* 关闭定时器通道2输出PWM */
+      HAL_TIM_PWM_Stop(&htimx_bldcm,TIM_CHANNEL_2);
+
+      /* 关闭定时器通道3输出PWM */
+      HAL_TIM_PWM_Stop(&htimx_bldcm,TIM_CHANNEL_3);
+   }
+
+首先定义两个定时器初始化结构体，定时器模式配置函数主要就是对这两个结构体的成员进行初始化，然后通过相
+应的初始化函数把这些参数写入定时器的寄存器中。有关结构体的成员介绍请参考定时器详解章节。
+
+不同的定时器可能对应不同的APB总线，在使能定时器时钟是必须特别注意。高级控制定时器属于APB2，
+定时器内部时钟是168MHz。
+
+在时基结构体中我们设置定时器周期参数为PWM_PERIOD_COUNT（5600）-1，时钟预分频器设置为
+PWM_PRESCALER_COUNT（2） - 1，频率为：168MHz/PWM_PERIOD_COUNT/PWM_PRESCALER_COUNT=15KHz，
+使用向上计数方式。
+
+在输出比较结构体中，设置输出模式为PWM1模式，通道输出高电平有效，设置脉宽为0。
+
+最后使用HAL_TIM_PWM_Stop函数确保计数器不开始计数和通道不输出PWM，这需要我们手动开启，默认不开启。
+
+.. code-block:: c
+   :caption: 霍尔传感器定时器模式配置
+   :linenos:
+
+   static void hall_tim_init(void)
+   {
+      TIM_HallSensor_InitTypeDef  hall_sensor_onfig;  
+      
+      /* 基本定时器外设时钟使能 */
+      HALL_TIM_CLK_ENABLE();
+      
+      /* 定时器基本功能配置 */
+      htimx_hall.Instance = HALL_TIM;
+      htimx_hall.Init.Prescaler = HALL_PRESCALER_COUNT - 1;       // 预分频
+      htimx_hall.Init.CounterMode = TIM_COUNTERMODE_UP;           // 向上计数
+      htimx_hall.Init.Period = HALL_PERIOD_COUNT - 1;             // 计数周期
+      htimx_hall.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;     // 时钟分频
+      
+      hall_sensor_onfig.IC1Prescaler = TIM_ICPSC_DIV1;            // 输入捕获分频
+      hall_sensor_onfig.IC1Polarity = TIM_ICPOLARITY_BOTHEDGE;    // 输入捕获极性
+      hall_sensor_onfig.IC1Filter = 10;                           // 输入滤波
+      hall_sensor_onfig.Commutation_Delay = 0U;                   // 不使用延迟触发
+      HAL_TIMEx_HallSensor_Init(&htimx_hall,&hall_sensor_onfig);
+      
+      HAL_NVIC_SetPriority(HALL_TIM_IRQn, 0, 0);    // 设置中断优先级
+      HAL_NVIC_EnableIRQ(HALL_TIM_IRQn);            // 使能中断
+   }
+
+关于霍尔传感器引脚的初始化代码这里不在讲解，具体代码请参考配套工程代码。
+高级控制定时器属于APB1，定时器内部时钟是84MHz。
+在时基结构体中我们设置定时器周期参数为PWM_PERIOD_COUNT（0xFFFF）-1，时钟预分频器设置为
+PWM_PRESCALER_COUNT（128） - 1，频率为：84MHz/PWM_PERIOD_COUNT/PWM_PRESCALER_COUNT≈10Hz，
+，计数器的溢出周期为100毫秒，这个时间要设置到电机正常旋转时足够一路霍尔传感器产生变化，
+这样能方便后续速度控制时的计时功能，使用向上计数方式。因为任何一相霍尔传感器发生变化都需要换相，
+所以输入捕获极性设置为双边沿触发。借助 TIMx_CR2 寄存器中的 TI1S 位，
+可将通道1的输入滤波器连接到异或门的输出，从而将CH1、CH2和CH3这三个输入引脚组合在一起，如下图所示。
+因此霍尔传感器必须使用定时器的CH1、CH2和CH3这3个通道，这样只要任意一相霍尔传感器状态发生变化都可以触发中断进行换相。
+配置定时器的中断优先级，并使能全局定时器中断。
+
+.. image:: ../media/timer_xor_function.png
+   :align: center
+   :alt: 定时器输入异或功能框图
+
+.. code-block:: c
+   :caption: 霍尔传感器使能
+   :linenos:
+
+   void hall_enable(void)
+   {
+      /* 使能霍尔传感器接口 */
+      __HAL_TIM_ENABLE_IT(&htimx_hall, TIM_IT_TRIGGER);
+      __HAL_TIM_ENABLE_IT(&htimx_hall, TIM_IT_UPDATE);
+      
+      HAL_TIMEx_HallSensor_Start(&htimx_hall);
+
+      LED1_OFF;
+      
+      HAL_TIM_TriggerCallback(&htimx_hall);   // 执行一次换相
+   }
+
+开启触发中断，开启更新中断，启动霍尔传感器，关闭LED1，LED1将用于电机堵转超时的指示灯，
+所以在开启电机前好确保该指示灯是灭的。最后执行了一次换相，在HAL_TIM_TriggerCallback这个函数里面执行一次换相，
+这是因为需要根据当前霍尔传感器的位置让电机旋转到下一个位置，同时时霍尔传感器状态也发生了变化，
+这时才会到HAL_TIM_TriggerCallback中断回调函数里面执行换相，否则电机将有可能不能正常启动。
+
+.. code-block:: c
+   :caption: 霍尔传感器触发换相
+   :linenos:
+
+   void HAL_TIM_TriggerCallback(TIM_HandleTypeDef *htim)
+   {
+      /* 获取霍尔传感器引脚状态,作为换相的依据 */
+      uint8_t step = 0;
+      step = get_hall_state();
+
+      if(get_bldcm_direction() == MOTOR_FWD)
+      {
+         step = 7 - step;        // 根据顺序表的规律可知： CW = 7 - CCW;
+      }
+
+      switch(step)
+      {
+         case 1://W+ U-
+            /*  Channe2 configuration  */ 
+            HAL_TIM_PWM_Stop(&htimx_bldcm, TIM_CHANNEL_2);     // 停止上桥臂 PWM 输出
+            HAL_GPIO_WritePin(MOTOR_OCNPWM2_GPIO_PORT, MOTOR_OCNPWM2_PIN, GPIO_PIN_RESET);    // 关闭下桥臂
+         
+            /*  Channe3 configuration */
+            HAL_TIM_PWM_Start(&htimx_bldcm, TIM_CHANNEL_3);    // 开始上桥臂 PWM 输出
+            HAL_GPIO_WritePin(MOTOR_OCNPWM1_GPIO_PORT, MOTOR_OCNPWM1_PIN, GPIO_PIN_SET);      // 开启下桥臂
+            break;
+         
+         case 2: //U+  V-
+            /*  Channe3 configuration */ 
+            HAL_TIM_PWM_Stop(&htimx_bldcm, TIM_CHANNEL_3);
+            HAL_GPIO_WritePin(MOTOR_OCNPWM3_GPIO_PORT, MOTOR_OCNPWM3_PIN, GPIO_PIN_RESET);
+         
+            /*  Channel configuration  */
+            HAL_TIM_PWM_Start(&htimx_bldcm, TIM_CHANNEL_1);
+            HAL_GPIO_WritePin(MOTOR_OCNPWM2_GPIO_PORT, MOTOR_OCNPWM2_PIN, GPIO_PIN_SET);
+            break;
+         
+         case 3:// W+ V-
+            /*  Channel configuration */ 
+            HAL_TIM_PWM_Stop(&htimx_bldcm, TIM_CHANNEL_1);
+            HAL_GPIO_WritePin(MOTOR_OCNPWM1_GPIO_PORT, MOTOR_OCNPWM1_PIN, GPIO_PIN_RESET);
+      
+            /*  Channe3 configuration  */
+            HAL_TIM_PWM_Start(&htimx_bldcm, TIM_CHANNEL_3);
+            HAL_GPIO_WritePin(MOTOR_OCNPWM2_GPIO_PORT, MOTOR_OCNPWM2_PIN, GPIO_PIN_SET);
+            break;
+         
+         case 4:// V+ W-
+            /*  Channel configuration */ 
+            HAL_TIM_PWM_Stop(&htimx_bldcm, TIM_CHANNEL_1);
+            HAL_GPIO_WritePin(MOTOR_OCNPWM1_GPIO_PORT, MOTOR_OCNPWM1_PIN, GPIO_PIN_RESET);
+
+            /*  Channe2 configuration */
+            HAL_TIM_PWM_Start(&htimx_bldcm, TIM_CHANNEL_2);
+            HAL_GPIO_WritePin(MOTOR_OCNPWM3_GPIO_PORT, MOTOR_OCNPWM3_PIN, GPIO_PIN_SET);    
+            break;
+         
+         case 5: // V+ U-
+            /*  Channe3 configuration */       
+            HAL_TIM_PWM_Stop(&htimx_bldcm, TIM_CHANNEL_3);
+            HAL_GPIO_WritePin(MOTOR_OCNPWM3_GPIO_PORT, MOTOR_OCNPWM3_PIN, GPIO_PIN_RESET);
+         
+            /*  Channe2 configuration */
+            HAL_TIM_PWM_Start(&htimx_bldcm, TIM_CHANNEL_2);
+         
+            HAL_GPIO_WritePin(MOTOR_OCNPWM1_GPIO_PORT, MOTOR_OCNPWM1_PIN, GPIO_PIN_SET);
+            break;
+         
+         case 6: // U+ W-
+            /*  Channe2 configuration */ 
+            HAL_TIM_PWM_Stop(&htimx_bldcm, TIM_CHANNEL_2);
+            HAL_GPIO_WritePin(MOTOR_OCNPWM2_GPIO_PORT, MOTOR_OCNPWM2_PIN, GPIO_PIN_RESET);
+         
+            /*  Channel configuration */
+            HAL_TIM_PWM_Start(&htimx_bldcm, TIM_CHANNEL_1); 
+            HAL_GPIO_WritePin(MOTOR_OCNPWM3_GPIO_PORT, MOTOR_OCNPWM3_PIN, GPIO_PIN_SET);
+            break;
+      }
+
+      update = 0;
+   }
+
+获取霍尔传感器引脚状态，根据厂家给出的真值表进行换相。将上桥臂采用PWM输出，下桥臂直接输出高电平。
+即为H_PWM-L_ON模式。将变量update设置为0。
+
+.. code-block:: c
+   :caption: 霍尔传感器更新回调
+   :linenos:
+
+   void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+   {
+      if (update++ > 1)    // 有一次在产生更新中断前霍尔传感器没有捕获到值
+      {
+         printf("堵转超时\r\n");
+         update = 0;
+         
+         LED1_ON;     // 点亮LED1表示堵转超时停止
+         
+         /* 堵转超时停止 PWM 输出 */
+         hall_disable();       // 禁用霍尔传感器接口
+         stop_pwm_output();    // 停止 PWM 输出
+      }
+   }
+
+因为霍尔传感器没变化一次都会进HAL_TIM_TriggerCallback函数将update设置为0，并且会产生更新中断进入
+HAL_TIM_PeriodElapsedCallback函数将update加一，那么如果update大于1就说明没有进入HAL_TIM_TriggerCallback
+函数，直接进入HAL_TIM_PeriodElapsedCallback函数，这就说明电机是堵转了，并且已经至少堵转了100毫秒，
+这里我们认为堵转超时停止PWM的输出和禁用霍尔传感器。
+
+.. code-block:: c
+   :caption: main函数
+   :linenos:
+
+   int main(void) 
+   {
+      __IO uint16_t ChannelPulse = 200;
+      uint8_t i = 0;
+      
+      /* 此处省略各种初始化函数 */
+         
+      /* 电机初始化 */
+      bldcm_init();
+         
+      while(1)
+      {
+         /* 扫描KEY1 */
+         if( Key_Scan(KEY1_GPIO_PORT,KEY1_PIN) == KEY_ON  )
+         {
+            /* 使能电机 */
+            set_bldcm_speed(ChannelPulse);
+            set_bldcm_enable();
+         }
+         
+         /* 扫描KEY2 */
+         if( Key_Scan(KEY2_GPIO_PORT,KEY2_PIN) == KEY_ON  )
+         {
+            /* 增大占空比 */
+            ChannelPulse+=50;
+            
+            if(ChannelPulse>PWM_PERIOD_COUNT)
+            ChannelPulse=PWM_PERIOD_COUNT;
+            
+            set_bldcm_speed(ChannelPulse);
+         }
+         
+         /* 扫描KEY3 */
+         if( Key_Scan(KEY3_GPIO_PORT,KEY3_PIN) == KEY_ON  )
+         {
+            if(ChannelPulse<50)
+            ChannelPulse=0;
+            else
+            ChannelPulse-=50;
+
+            set_bldcm_speed(ChannelPulse);
+         }
+         
+         /* 扫描KEY4 */
+         if( Key_Scan(KEY4_GPIO_PORT,KEY4_PIN) == KEY_ON  )
+         {
+            /* 转换方向 */
+            set_bldcm_direction( (++i % 2) ? MOTOR_FWD : MOTOR_REV);
+         }
+         
+         /* 扫描KEY4 */
+         if( Key_Scan(KEY5_GPIO_PORT,KEY5_PIN) == KEY_ON  )
+         {
+            /* 停止电机 */
+            set_bldcm_disable();
+         }
+      }
+   }
+
+在main函数中首先初始化了各种外设，在死循环中检测按键的变化，按KEY1可以启动电机；按KEY2可以增大PWM占空比，增加电机旋转速度；
+按KEY3可以减小PWM占空比，减小电机旋转速度；按KEY4可以使电机旋转方向改变；按KEY4可以停止电机旋转；
 
 下载验证
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+按照要求电机和控制板连接好，可以按下KEY1、2、3、4、5对电机进行控制，当PWM减小到一定值时，电机会停止旋转，
+当堵转超时后LED1会亮起，并且停止PWM的输出，关闭电机防止长时间的大电流烧毁电机。 
+
+在确定PWM输出正确后我们就可以接上电机进行验证我们的程序了，实物连接如下图所示。
+
+.. image:: ../media/bldcm_key_control.jpg
+   :align: center
+   :alt: 无刷电机连接实物图
