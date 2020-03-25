@@ -20,7 +20,7 @@
 .. toctree::
    :maxdepth: 1
    :caption: 如何学习
-   :numbered: 
+   :numbered:
 
    zero_part/foreword
    zero_part/why-study
@@ -29,7 +29,7 @@
 .. toctree::
    :maxdepth: 1
    :caption: 基础部分
-   :numbered: 
+   :numbered:
 
    basis_part/motor_introduction
    basis_part/stm32_time_detailed
@@ -45,24 +45,24 @@
 .. toctree::
    :maxdepth: 1
    :caption: 提高部分
-   :numbered: 
-   
+   :numbered:
+
    improve_part/relationship_between_control_system_and_motor
    improve_part/PID_detailed
    improve_part/PID_parameter_tuning
    improve_part/use_of_encoder
-   improve_part/dc_motor_speed_loop_control 
+   improve_part/dc_motor_speed_loop_control
    improve_part/dc_motor_current_loop_control
    improve_part/dc_motor_pos_loop_control
    improve_part/steering_pos_loop_control
-   improve_part/step_motor_speed_loop_control       
-   improve_part/step_motor_pos_loop_control       
-   improve_part/step_motor_T_speed      
-   improve_part/step_motor_S_speed   
+   improve_part/step_motor_speed_loop_control
+   improve_part/step_motor_pos_loop_control
+   improve_part/step_motor_T_speed
+   improve_part/step_motor_S_speed
    improve_part/step_motor_linear_interpolation
    improve_part/step_motor_circular_interpolation
    improve_part/BLDC_speed_loop_control
-   improve_part/synchronize_motor_PMSM_control      
+   improve_part/synchronize_motor_PMSM_control
 
 
 .. toctree::
