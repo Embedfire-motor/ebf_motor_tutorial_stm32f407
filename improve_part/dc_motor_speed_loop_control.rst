@@ -12,7 +12,8 @@
 
 硬件设计
 ------------------------------------------
-本章的硬件设计与编码器的使用一章节中的硬件设计完全一样，所以这里不在赘述。
+本章的硬件设计与编码器的使用一章节中的硬件设计完全一样，所以这里不在赘述，
+本章配套L298N和野火使用MOS管搭建的驱动板教程。
 
 直流电机速度环控制-位置式PID实现
 ------------------------------------------
@@ -29,9 +30,10 @@
 (1) 配置定时器可以输出PWM控制电机
 (2) 配置定时器可以读取编码器的计数值
 (3) 配置基本定时器可以产生定时中断来执行PID运算
-(4) 编写PID算法
-(5) 增加上位机曲线观察相关代码
-(6) 编写按键控制代码
+(4) 编写位置式PID算法
+(5) 编写速度控制函数
+(6) 增加上位机曲线观察相关代码
+(7) 编写按键控制代码
 
 软件分析
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -157,8 +159,36 @@
 在这里调用motor_pid_control()进行PID的周期性的控制。
 
 .. code-block:: c
+   :caption: bsp_pid.c-位置式PID参数初始化
+   :linenos:
+
+    void PID_param_init()
+    {
+        /* 初始化参数 */
+        pid.target_val=100.0;				
+        pid.actual_val=0.0;
+        pid.err=0.0;
+        pid.err_last=0.0;
+        pid.integral=0.0;
+
+        pid.Kp = 13;
+        pid.Ki = 3.5;
+        pid.Kd = 0.04;
+
+    #if defined(PID_ASSISTANT_EN)
+        float pid_temp[3] = {pid.Kp, pid.Ki, pid.Kd};
+        set_computer_value(SEED_P_I_D_CMD, CURVES_CH1, pid_temp, 3);     // 给通道 1 发送 P I D 值
+    #endif
+    }
+
+PID_param_init()函数把结构体pid参数初始化，将目标值pid.target_val设置为100.0，将实际值、偏差值和积分项等初始化为0，
+其中pid.Kp、pid.Ki和pid.Kd是我们配套电机运行效果相对比较好的参数，不同的电机该参数是不同的。
+set_computer_value()函数用来同步上位机显示的PID值。
+
+.. code-block:: c
    :caption: bsp_pid.c-位置式PID算法实现
    :linenos:
+   
     float PID_realize(float actual_val)
     {
         /*计算目标值与实际值的误差*/
@@ -175,8 +205,16 @@
 
 这个函数主要实现了位置式PID算法，用传入的目标值减去实际值得到误差值得到比例项，在对误差值进行累加得到积分项，
 用本次误差减去上次的误差得到微分项，然后通过前面章节介绍的位置式PID公式实现PID算法，并返回实际控制值。
+
+.. image:: ../media/PID_lisan5.png
+   :align: center
+
+这个公式就是代码第8行中的公式形式，公式和代码的计算方式基本一致，只不过在公式中第二项的Ki是使用的对误差积分，
+在代码中变成了对误差的累加，虽然表达形式不一样，但是达到的效果和目的是一样的。
+计算过后将误差传递用于下一次使用，并将实际值返回。
+
 当我不使用PID控制，直接输出固定占空的PWM进行控制的时候，返回的速度也会有波动，这个波动是不可避免的，
-所在PID的控制过程中不可能吧速度刚好调整为目标值，这时候我们就需要把波动的误差手动设置为0。
+所在PID的控制过程中不可能吧速度刚好调整为目标值，这时候我们就需要把波动的误差设置为0。
 
 .. code-block:: c
    :caption: bsp_motor_control.c-速度环pid控制
@@ -231,6 +269,82 @@ GET_BASIC_TIM_PERIOD()/1000.0/60.0为周期的对应的时间，单位是分钟�
 所以((float)(Capture_Count-Last_Count)/ENCODER_TOTAL_RESOLUTION/REDUCTION_RATIO)/(GET_BASIC_TIM_PERIOD()/1000.0/60.0)就是电机的旋转速度，
 单位是转每分钟。把实际速度带入PID_realize(actual_speed)进行运算，通过返回的结果的正负来确定电机的旋转方向，
 最后对输出的结果做一个上限处理，最后用于PWM占空比的控制，最后将实际的速度值发送到上位机绘制变化的曲线。
+
+.. code-block:: c
+   :caption: bsp_debug_usart.c-串口数据解析
+   :linenos:
+
+    void HAL_UART_AbortReceiveCpltCallback(UART_HandleTypeDef *husart)
+    {
+      packet_head_t packet;
+        
+      packet.cmd = UART_RxBuffer[CMD_INDEX_VAL];
+      packet.len  = COMPOUND_32BIT(&UART_RxBuffer[LEN_INDEX_VAL]);     // 合成长度
+      packet.head = COMPOUND_32BIT(&UART_RxBuffer[HEAD_INDEX_VAL]);    // 合成包头
+      
+      if (packet.head == PACKET_HEAD)    // 检查包头
+      {
+        /* 包头正确 */
+        if (check_sum(0, UART_RxBuffer, packet.len - 1) == UART_RxBuffer[packet.len - 1])    // 检查校验和是否正确
+        {
+          switch(packet.cmd)
+          {
+            case SET_P_I_D_CMD:
+            {
+              uint32_t temp0 = COMPOUND_32BIT(&UART_RxBuffer[13]);
+              uint32_t temp1 = COMPOUND_32BIT(&UART_RxBuffer[17]);
+              uint32_t temp2 = COMPOUND_32BIT(&UART_RxBuffer[21]);
+              
+              float p_temp, i_temp, d_temp;
+              
+              p_temp = *(float *)&temp0;
+              i_temp = *(float *)&temp1;
+              d_temp = *(float *)&temp2;
+              
+              set_p_i_d(p_temp, i_temp, d_temp);    // 设置 P I D
+            }
+            break;
+
+            case SET_TARGET_CMD:
+            {
+              int actual_temp = COMPOUND_32BIT(&UART_RxBuffer[13]);    // 得到数据
+              
+              set_pid_target(actual_temp);    // 设置目标值
+            }
+            break;
+            
+            case START_CMD:
+            {
+              set_motor_enable();              // 启动电机
+            }
+            break;
+            
+            case STOP_CMD:
+            {
+              set_motor_disable();              // 停止电机
+            }
+            break;
+            
+            case RESET_CMD:
+            {
+              HAL_NVIC_SystemReset();          // 复位系统
+            }
+            break;
+            
+            case SET_PERIOD_CMD:
+            {
+              uint32_t temp = COMPOUND_32BIT(&UART_RxBuffer[13]);     // 周期数
+              SET_BASIC_TIM_PERIOD(temp);                             // 设置定时器周期1~1000ms
+            }
+            break;
+          }
+        }
+      }
+    }
+
+这函数用于处理上位机发下的数据，可以使用上位机调整PID参数，使用上位机可以非常方便的调整PID参数，
+这样可以不用每次修改PID参数时都要编写下载代码；可以使用上位机设置目标速度；可以启动和停止电机；
+可以使用上位机复位系统；可以使用上位机设置定时器的周期；具体功能的实现请参考配套工程代码。
 
 .. code-block:: c
    :caption: main.c-主函数
@@ -317,5 +431,122 @@ GET_BASIC_TIM_PERIOD()/1000.0/60.0为周期的对应的时间，单位是分钟�
 在主函数里面首先做了一些外设的初始化，然后通过按键可以控制电机的启动、停止和目标速度的设定，
 在使用上位机的情况下这些操作也可以通过上位机完成。
 
+下载验证
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+我们按前面介绍的硬件连接好电机和驱动板，需要注意的是L2986N和野火使用MOS管搭建的驱动板的程序是不一样的，
+请根据不同的驱动板下载对应的程序。
+
+将程序编译下载后，使用Type-C数据线连接开发板到电脑USB，打开野火调试助手-PID调试助手来观察电机的运行效果。
+按下KEY1可以启动电机，按下KEY2可以停止电机，按下KEY3可以加速，按下KEY4可以减速。按下按键改变速度后，
+我们可以通过上位机来观察速度的变化情况，也可以通过上位机来控制电机。下图是电机运行效果图。
+
+.. image:: ../media/speed_pid.png
+   :align: center
+   :alt: 速度环位置式PID控制效果
+
+增加负载在观察....
+
 直流电机速度环控制-增量式PID实现
 ------------------------------------------
+
+软件设计
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+同过前面位置式PID控制的学习，大家应该对速度环PID控制有了更深刻的理解，
+这里将只讲解核心的部分代码，有些变量的设置，头文件的包含等并没有涉及到，
+还有一些在前章节章节分析过的代码在这里也不在重复讲解，完整的代码请参考本节配套的工程。
+
+编程要点
+"""""""""""""""""""""""""""""""""
+
+(1) 配置定时器可以输出PWM控制电机
+(2) 配置定时器可以读取编码器的计数值
+(3) 配置基本定时器可以产生定时中断来执行PID运算
+(4) 编写增量式PID算法
+(5) 编写速度控制函数
+(6) 增加上位机曲线观察相关代码
+(7) 编写按键控制代码
+
+软件分析
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+增量式PID实现的速度环控制和位置式PID现实的速度环控制其控制代码大部分都是一样的，
+在上面的编程要点中只有第4项是不同的，其他代码均相同，所以这里将只讲解不一样的部分代码，
+完整代码请参考本节配套工程。
+
+.. code-block:: c
+   :caption: bsp_pid.c-位置式PID参数初始化
+   :linenos:
+
+    void PID_param_init()
+    {
+        /* 初始化参数 */
+        pid.target_val=100;				
+        pid.actual_val=0.0;
+        pid.err = 0.0;
+        pid.err_last = 0.0;
+        pid.err_next = 0.0;
+        
+        pid.Kp = 0.6;
+        pid.Ki = 0.4;
+        pid.Kd = 0.2;
+
+    #if defined(PID_ASSISTANT_EN)
+        float pid_temp[3] = {pid.Kp, pid.Ki, pid.Kd};
+        set_computer_value(SEED_P_I_D_CMD, CURVES_CH1, pid_temp, 3);     // 给通道 1 发送 P I D 值
+    #endif
+    }
+
+PID_param_init()函数把结构体pid参数初始化，将目标值pid.target_val设置为100.0，将实际值、偏差值和上一次偏差值等初始化为0，
+其中pid.err用来保存本次偏差值，pid.err_last用来保存上一次偏差值，pid.err_next用来保存上上次的偏差值；
+pid.Kp、pid.Ki和pid.Kd是我们配套电机运行效果相对比较好的参数，不同的电机该参数是不同的。
+set_computer_value()函数用来同步上位机显示的PID值。
+
+.. code-block:: c
+   :caption: bsp_pid.c-增量式PID算法实现
+   :linenos:
+
+    float PID_realize(float actual_val)
+    {
+      /*计算目标值与实际值的误差*/
+      pid.err=pid.target_val-actual_val;
+      /*PID算法实现*/
+      pid.actual_val += pid.Kp*(pid.err - pid.err_next) 
+                     + pid.Ki*pid.err 
+                     + pid.Kd*(pid.err - 2 * pid.err_next + pid.err_last);
+      /*传递误差*/
+      pid.err_last = pid.err_next;
+      pid.err_next = pid.err;
+      /*返回当前实际值*/
+      return pid.actual_val;
+    }
+
+
+这个函数主要实现了增量式PID算法，用传入的目标值减去实际值得到误差值得到当前偏差值，
+在第6~8行中实现了下面公式中的增量式PID算法。
+
+.. image:: ../media/PID_lisan4.png
+   :align: center
+
+.. image:: ../media/PID_lisan6.png
+   :align: center
+
+然后进行误差传递，将本次偏差和上次偏差保存下来，供下次计算时使用。
+在第6行中将计算后的结果累加到pid.actual_val变量，最后返回该变量，用于控制电机的PWM占空比。
+
+下载验证
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+我们按前面介绍的硬件连接好电机和驱动板，需要注意的是L2986N和野火使用MOS管搭建的驱动板的程序是不一样的，
+请根据不同的驱动板下载对应的程序。
+
+将程序编译下载后，使用Type-C数据线连接开发板到电脑USB，打开野火调试助手-PID调试助手来观察电机的运行效果。
+按下KEY1可以启动电机，按下KEY2可以停止电机，按下KEY3可以加速，按下KEY4可以减速。按下按键改变速度后，
+我们可以通过上位机来观察速度的变化情况，也可以通过上位机来控制电机。下图是电机运行效果图。
+
+.. image:: ../media/speed_pid.png
+   :align: center
+   :alt: 速度环位置式PID控制效果
+
+增加负载在观察....
