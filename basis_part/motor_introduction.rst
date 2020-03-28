@@ -47,10 +47,9 @@
 
 .. image:: ../media/youshua_motor.png
    :align: center
-   :width: 7.6in
-   :height: 3.3in
 
-图 1-2 有刷电机、无刷电机示意图(图片来自网络)
+
+图 1-2 左侧为有刷电机、右侧为无刷电机(图片来自网络)
 
 
 步进电机
