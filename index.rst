@@ -34,6 +34,7 @@
    basis_part/motor_introduction
    basis_part/stm32_time_detailed
    basis_part/DC_brushed_motor
+   basis_part/brushed_current_vbus_gather
    basis_part/steering_gear_control
    basis_part/stepper_motor
    basis_part/brushless_DC_motor
