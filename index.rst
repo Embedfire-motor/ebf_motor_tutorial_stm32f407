@@ -55,7 +55,7 @@
    improve_part/dc_motor_speed_loop_control
    improve_part/dc_motor_current_loop_control
    improve_part/dc_motor_pos_loop_control
-   improve_part/steering_pos_loop_control
+   improve_part/dc_motor_multi_loop_control
    improve_part/step_motor_speed_loop_control
    improve_part/step_motor_pos_loop_control
    improve_part/step_motor_T_speed
