@@ -251,12 +251,12 @@
 - 第52~60行：在电机停止或由运行变为停止时，需要清零编码器读数的中间值和PID控制器中的累加数据，以免影响电机再次启动时的控制效果。
 
 我们重点讲解一下第41行代码，首先需要说明一点，整个Stepper_Speed_Ctrl闭环控制函数中，传入PID和PID输出的参数都是编码器的数据，也就是编码器的脉冲频率，
-但是实际被控量是步进电机转轴速度，需要做转换。将编码器的脉冲频率 **capture_per_unit** 乘上一个系数 **PULSE_RATIO** 便可得到步进电机所需的脉冲频率，
-这个系数是由步进电机经过细分后转轴转一圈所需的脉冲数，与编码器转一圈发出的脉冲数之间的比值得出。不过此时的频率还是以ms为单位的，后续计算需要统一成以s为单位，
-因为本例程的采样周期是20ms，所以转换单位只需要乘上1s内的采样次数50即可。
+但是实际被控量是步进电机的转轴速度，需要做转换。将编码器的脉冲频率 **capture_per_unit** 乘上一个系数 **PULSE_RATIO** 便可得到步进电机所需的脉冲频率，
+这个系数是由步进电机经过细分后转轴转一圈所需的脉冲数，与编码器转一圈发出的脉冲数之间的比值得出。不过此时的频率还是以ms为单位的，为了后续计算方便，
+需要统一成以s为单位，因为本例程的采样周期是20ms，所以单位转换只需要乘上1s内的采样次数50即可。
 
 得到了步进电机需要的脉冲频率还不够，我们需要想办法把它转换成可以写入捕获比较寄存器的值。在步进电机基础旋转章节中我们提到过，当定时器配置为输出比较模式时，
-通过修改捕获比较寄存器当中的值，可以改变步进电机脉冲的周期，从而改变电机转速，其实本实验也是同样的道理。所以
+通过修改捕获比较寄存器当中的值，可以改变步进电机脉冲的周期，从而改变电机转速，其实本实验也是同样的道理。所以实际上我们 
 
 **闭环控制周期调用**
 
@@ -336,41 +336,45 @@
       
       while(1)
       {
-        if( Key_Scan(KEY3_GPIO_PORT,KEY3_PIN) == KEY_ON  )
-        {
-          pid_status=!pid_status;//取反状态
-        #if !PID_ASSISTANT_EN
-          if (!pid_status)
-          {
-            Set_Stepper_Start();
-          }
-          else
-          {
-            Set_Stepper_Break();
-          }
-        #else
-          if (!pid_status)
-          {
-            set_computer_value(SEED_START_CMD, CURVES_CH1, NULL, 0);     // 同步上位机的启动按钮状态
-            Set_Stepper_Start();
-          }
-          else
-          {
-            set_computer_value(SEED_STOP_CMD, CURVES_CH1, NULL, 0);     // 同步上位机的启动按钮状态
-            Set_Stepper_Break();
-          }
-        #endif
-        }
         if( Key_Scan(KEY2_GPIO_PORT,KEY2_PIN) == KEY_ON  )
         {
-          Set_Stepper_Dir(~dir_status);
+          Set_Stepper_Dir(~dir_status);                                // 步进电机换方向
+        }
+        
+        if( Key_Scan(KEY3_GPIO_PORT,KEY3_PIN) == KEY_ON  )
+        {
+          pid_status=!pid_status;// 取反状态
+        #if PID_ASSISTANT_EN     // 使用上位机
+          if (!pid_status)
+          {
+            set_computer_value(SEED_START_CMD, CURVES_CH1, NULL, 0);   // 同步上位机的启动按钮状态
+            Set_Stepper_Start();                                       // 步进电机启动
+          }
+          else
+          {
+            set_computer_value(SEED_STOP_CMD, CURVES_CH1, NULL, 0);    // 同步上位机的启动按钮状态
+            Set_Stepper_Stop();                                        // 步进电机停止
+          }
+        #else                   // 不使用上位机
+          if (!pid_status)
+          {
+            Set_Stepper_Start();                                       // 步进电机启动
+          }
+          else
+          {
+            Set_Stepper_Stop();                                        // 步进电机停止
+          }         
+        #endif
         }
       }
     }
 
+main函数中主要就是一些外设的初始化，包括PID控制器的目标值设置。然后在while循环中轮询按键，通过按键控制步进电机，
+其中KEY3控制步机电机的启动和停止，KEY2控制步进电机方向。
 
 实验现象
 ^^^^^^^^^
+下载程序后，打开野火多功能调试助手，按KEY3启动步进电机，从调试助手的PID调试界面可以看到步进电机的速度变化曲线。
 
 .. 步进电机速度环控制--增量式PID
 .. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
