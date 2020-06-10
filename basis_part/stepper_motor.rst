@@ -536,61 +536,61 @@ B-          黑色
 **主函数**
 
 .. code-block:: c
-    :caption: 步进电机旋转函数
+    :caption: 主函数
     :linenos:
 
-/**
-  * @brief  主函数
-  * @param  无
-  * @retval 无
-  */
-int main(void) 
-{
-  int key_val=0;
-  int i=0;
-  int dir_val=0;
-  int angle_val=90;
-  
-  /* 初始化系统时钟为168MHz */
-  SystemClock_Config();
-  /*初始化USART 配置模式为 115200 8-N-1，中断接收*/
-  DEBUG_USART_Config();
-  printf("欢迎使用野火 电机开发板 步进电机 IO口模拟控制 例程\r\n");
-  printf("按下按键2可修改旋转方向、按下按键3可修改旋转角度\r\n");
-  /*按键初始化*/
-  Key_GPIO_Config();
-  /*步进电机初始化*/
-  stepper_Init();
-  /*开启步进电机使能*/
-  while(1)
-  {     
-    if( Key_Scan(KEY2_GPIO_PORT,KEY2_PIN) == KEY_ON  )
+    /**
+      * @brief  主函数
+      * @param  无
+      * @retval 无
+      */
+    int main(void) 
     {
-      /*改变方向*/
-      dir_val=(++i % 2) ? CW : CCW;
-      MOTOR_DIR(dir_val);
-      key_val = ON;
-    }
-    if( Key_Scan(KEY3_GPIO_PORT,KEY3_PIN) == KEY_ON  )
-    {
-      /*改变角度*/
-      angle_val=angle_val+90;
-      key_val = ON;
-    }
-    if( key_val == ON  )
-    {
-      /*打印状态*/
-      if(dir_val)
-        printf("顺时针旋转 %d 度,",angle_val);
-      else
-        printf("逆时针旋转 %d 度,",angle_val);
+      int key_val=0;
+      int i=0;
+      int dir_val=0;
+      int angle_val=90;
       
-      printf("正在运行中......\r\n");
-      stepper_turn(1000,angle_val,32,dir_val);
-      key_val = OFF;
-    }
-  }
-} 
+      /* 初始化系统时钟为168MHz */
+      SystemClock_Config();
+      /*初始化USART 配置模式为 115200 8-N-1，中断接收*/
+      DEBUG_USART_Config();
+      printf("欢迎使用野火 电机开发板 步进电机 IO口模拟控制 例程\r\n");
+      printf("按下按键2可修改旋转方向、按下按键3可修改旋转角度\r\n");
+      /*按键初始化*/
+      Key_GPIO_Config();
+      /*步进电机初始化*/
+      stepper_Init();
+      /*开启步进电机使能*/
+      while(1)
+      {     
+        if( Key_Scan(KEY2_GPIO_PORT,KEY2_PIN) == KEY_ON  )
+        {
+          /*改变方向*/
+          dir_val=(++i % 2) ? CW : CCW;
+          MOTOR_DIR(dir_val);
+          key_val = ON;
+        }
+        if( Key_Scan(KEY3_GPIO_PORT,KEY3_PIN) == KEY_ON  )
+        {
+          /*改变角度*/
+          angle_val=angle_val+90;
+          key_val = ON;
+        }
+        if( key_val == ON  )
+        {
+          /*打印状态*/
+          if(dir_val)
+            printf("顺时针旋转 %d 度,",angle_val);
+          else
+            printf("逆时针旋转 %d 度,",angle_val);
+          
+          printf("正在运行中......\r\n");
+          stepper_turn(1000,angle_val,32,dir_val);
+          key_val = OFF;
+        }
+      }
+    } 
 
 初始化系统时钟、串口、按键和步进电机IO等外设，最后在循环里面处理键值。当KEY2按下后，
 改变旋转方向，当KEY3按下后，增加旋转角度，并打印旋转的状态与角度。    
@@ -862,7 +862,7 @@ int main(void)
 
 **编程要点**
 
-(1)步进电机、定时器初始化
+(1) 步进电机、定时器初始化
 
 (2) 在main函数中编写轮询按键控制步进电机旋转的代码
 
@@ -1069,14 +1069,14 @@ OC_Pulse_num是我们定义的一个全局参数，用来指定占空比大小�
 
 **编程要点**
 
-(1)步进电机、定时器初始化
+(1) 步进电机、定时器初始化
 
 (2) 在main函数中编写轮询按键控制步进电机旋转的代码
 
 **步进电机定时器初始化**
 
 .. code-block:: c
-    :caption: 定时器初始化配置
+    :caption: 步进电机定时器初始化
     :linenos:
 
     /*
