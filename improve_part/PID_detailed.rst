@@ -263,7 +263,7 @@ PID框图
 
 将程序下载到开发板，就会看到目标值与实际值的变化，为了方便观看，我将串口打印信息复制到了下面：
 
-.. code-block:: c
+.. code-block::
    :caption: 串口打印
    :linenos:
 
@@ -410,9 +410,9 @@ PID框图
     /**
     * @brief  定时器周期调用函数
     * @param  无
-        *	@note 	无
+    * @note   无
     * @retval 无
-    */
+    **/
     void time_period_fun()
     {
         static int flag=0;
@@ -443,7 +443,7 @@ PID框图
 
 这个函数主要验证在多少次后PID趋于稳定，趋于稳定暂时定于的条件是20次，具体看需求可以调节。
 
-.. code-block:: c
+.. code-block::
    :caption: 调节对比
    :linenos:
 
@@ -688,7 +688,7 @@ PID框图
 
 将代码下载到开发板，以下是修改参数后的增量式PID串口输出：
 
-.. code-block:: c
+.. code-block::
    :caption: PID调节输出
    :linenos:
 
