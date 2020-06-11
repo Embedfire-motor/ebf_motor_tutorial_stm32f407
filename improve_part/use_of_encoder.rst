@@ -70,7 +70,8 @@ HAL库帮助文档《STM32F417xx_User_Manual.chm》。
 低速时，M\ :sub:`1`\增大，M\ :sub:`0`\减小，相当于T法。
 
 STM32的编码器接口简介
-~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
+
 STM32芯片内部有专门用来采集增量式编码器方波信号的接口，这些接口实际上是STM32定时器的其中一种功能。
 不过编码器接口功能只有高级定时器TIM1、TIM8和通用定时器TIM2到TIM5才有。编码器接口用到了定时器的输入捕获部分，
 功能框图如下图所示。输入捕获功能在《STM32 HAL库开发指南》中已有详细讲解，所以这部分内容在此就不再赘述了。
@@ -177,8 +178,12 @@ TIM_Encoder_InitTypeDef
 #. ICxPrescaler：输入捕获通道预分频器，可设置1、2、4、8分频。它设定TIMx_CCMRx寄存器的ICxPSC[1:0]位的值。
 #. ICxFilter：输入捕获滤波器设置，可选设置0x0至0x0F。它设定TIMx_CCMRx寄存器ICxF[3:0]位的值。
 
+
+.. _减速电机编码器测速实验:
+
 减速电机编码器测速实验
 ~~~~~~~~~~~~~~~~~~~~~~~~
+
 本实验讲解如何使用STM32的编码器接口，并利用编码器接口对减速电机进行测速。学习本小节内容时，请打开配套的“减速电机编码器测速”工程配合阅读。
 
 硬件设计
@@ -199,7 +204,7 @@ TIM_Encoder_InitTypeDef
 编程要点
 ^^^^^^^^^^^
 1. 定时器 IO 配置
-#. 定时器时基结构体TIM_TimeBaseInitTypeDef配置
+#. 定时器时基结构体TIM_HandleTypeDef配置
 #. 编码器接口结构体TIM_Encoder_InitTypeDef配置
 #. 通过编码器接口测量到的数值计算减速电机转速
 
@@ -545,14 +550,355 @@ TIM_Encoder_InitTypeDef
    :align: center
    :alt: 减速电机测速实验现象
 
+
 步进电机编码器测速实验
 ~~~~~~~~~~~~~~~~~~~~~~
+
+本实验讲解如何使用STM32的编码器接口，并利用编码器接口对步进电机进行测速。学习本小节内容时，请打开配套的“步进电机编码器测速”工程配合阅读。
 
 硬件设计
 --------
 
+本实验用到的步进电机与步进电机按键控制例程的相同，所以电机、开发板和驱动板的硬件连接也完全相同，只加上了编码器的连线。
+关于编码器接口部分原理图及其说明与减速电机编码器相同，可以查看 :ref:`减速电机编码器测速实验` 章节相关内容。
+
 软件设计
 --------
 
+本编码器测速例程是在步进电机按键控制例程的基础上编写的，这里只讲解跟编码器有关的部分核心代码，有些变量的设置，头文件的包含以及如何驱动步进电机等并没有涉及到，
+完整的代码请参考本章配套的工程。我们创建了两个文件：bsp_encoder.c 和 bsp_encoder.h 文件用来存放编码器接口驱动程序及相关宏定义。
+
+编程要点
+^^^^^^^^^^^
+1. 定时器 IO 配置
+#. 定时器时基结构体TIM_HandleTypeDef配置
+#. 编码器接口结构体TIM_Encoder_InitTypeDef配置
+#. 通过编码器接口测量到的数值计算步进电机转速
+
+软件分析
+^^^^^^^^^^^
+
+(1) 宏定义
+
+.. code-block:: c
+   :caption: bsp_encoder.h-宏定义
+   :linenos:
+
+    /* 定时器选择 */
+    #define ENCODER_TIM                            TIM3
+    #define ENCODER_TIM_CLK_ENABLE()  				     __HAL_RCC_TIM3_CLK_ENABLE()
+
+    /* 定时器溢出值 */		
+    #define ENCODER_TIM_PERIOD                     65535
+    /* 定时器预分频值 */
+    #define ENCODER_TIM_PRESCALER                  0      
+
+    /* 定时器中断 */
+    #define ENCODER_TIM_IRQn                       TIM3_IRQn
+    #define ENCODER_TIM_IRQHandler                 TIM3_IRQHandler
+
+    /* 编码器接口引脚 */
+    #define ENCODER_TIM_CH1_GPIO_CLK_ENABLE()      __HAL_RCC_GPIOC_CLK_ENABLE()
+    #define ENCODER_TIM_CH1_GPIO_PORT              GPIOC
+    #define ENCODER_TIM_CH1_PIN                    GPIO_PIN_6
+    #define ENCODER_TIM_CH1_GPIO_AF                GPIO_AF2_TIM3
+
+    #define ENCODER_TIM_CH2_GPIO_CLK_ENABLE()      __HAL_RCC_GPIOC_CLK_ENABLE()
+    #define ENCODER_TIM_CH2_GPIO_PORT              GPIOC
+    #define ENCODER_TIM_CH2_PIN                    GPIO_PIN_7
+    #define ENCODER_TIM_CH2_GPIO_AF                GPIO_AF2_TIM3
+
+    /* 编码器接口倍频数 */
+    #define ENCODER_MODE                           TIM_ENCODERMODE_TI12
+
+    /* 编码器接口输入捕获通道相位设置 */
+    #define ENCODER_IC1_POLARITY                   TIM_ICPOLARITY_RISING
+    #define ENCODER_IC2_POLARITY                   TIM_ICPOLARITY_RISING
+
+    /* 编码器物理分辨率 */
+    #define ENCODER_RESOLUTION                     600
+
+    /* 经过倍频之后的总分辨率 */
+    #if ((ENCODER_MODE == TIM_ENCODERMODE_TI1) || (ENCODER_MODE == TIM_ENCODERMODE_TI2))
+      #define ENCODER_TOTAL_RESOLUTION             (ENCODER_RESOLUTION * 2)  /* 2倍频后的总分辨率 */
+    #else
+      #define ENCODER_TOTAL_RESOLUTION             (ENCODER_RESOLUTION * 4)  /* 4倍频后的总分辨率 */
+    #endif
+
+宏定义的说明与减速电机章节相同，此处不再赘述。
+
+(2) 定时器复用功能引脚初始化
+
+.. code-block:: c
+   :caption: bsp_encoder.c-定时器复用功能引脚初始化
+   :linenos:
+
+    /**
+      * @brief  编码器接口引脚初始化
+      * @param  无
+      * @retval 无
+      */
+    static void Encoder_GPIO_Init(void)
+    {
+      GPIO_InitTypeDef GPIO_InitStruct = {0};
+
+      /* 定时器通道引脚端口时钟使能 */
+      ENCODER_TIM_CH1_GPIO_CLK_ENABLE();
+      ENCODER_TIM_CH2_GPIO_CLK_ENABLE();
+
+      /**TIM3 GPIO Configuration
+      PC6     ------> TIM3_CH1
+      PC7     ------> TIM3_CH2
+      */
+      /* 设置输入类型 */
+      GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+      /* 设置上拉 */
+      GPIO_InitStruct.Pull = GPIO_PULLUP;
+      /* 设置引脚速率 */
+      GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+
+      /* 选择要控制的GPIO引脚 */
+      GPIO_InitStruct.Pin = ENCODER_TIM_CH1_PIN;
+      /* 设置复用 */
+      GPIO_InitStruct.Alternate = ENCODER_TIM_CH1_GPIO_AF;
+      /* 调用库函数，使用上面配置的GPIO_InitStructure初始化GPIO */
+      HAL_GPIO_Init(ENCODER_TIM_CH1_GPIO_PORT, &GPIO_InitStruct);
+
+      /* 选择要控制的GPIO引脚 */
+      GPIO_InitStruct.Pin = ENCODER_TIM_CH2_PIN;
+      /* 设置复用 */
+      GPIO_InitStruct.Alternate = ENCODER_TIM_CH2_GPIO_AF;
+      /* 调用库函数，使用上面配置的GPIO_InitStructure初始化GPIO */
+      HAL_GPIO_Init(ENCODER_TIM_CH2_GPIO_PORT, &GPIO_InitStruct);
+    }
+
+定时器复用功能引脚初始化的说明与减速电机章节相同，此处不再赘述。
+
+(3) 编码器接口配置
+
+.. code-block:: c
+   :caption: bsp_encoder.c-编码器接口配置
+   :linenos:
+
+    /**
+      * @brief  配置TIMx编码器模式
+      * @param  无
+      * @retval 无
+      */
+    static void TIM_Encoder_Init(void)
+    {
+      TIM_Encoder_InitTypeDef Encoder_ConfigStructure;
+
+      /* 使能编码器接口时钟 */
+      ENCODER_TIM_CLK_ENABLE();
+
+      /* 定时器初始化设置 */
+      TIM_EncoderHandle.Instance = ENCODER_TIM;
+      TIM_EncoderHandle.Init.Prescaler = ENCODER_TIM_PRESCALER;
+      TIM_EncoderHandle.Init.CounterMode = TIM_COUNTERMODE_UP;
+      TIM_EncoderHandle.Init.Period = ENCODER_TIM_PERIOD;
+      TIM_EncoderHandle.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+      TIM_EncoderHandle.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+
+      /* 设置编码器倍频数 */
+      Encoder_ConfigStructure.EncoderMode = ENCODER_MODE;
+      /* 编码器接口通道1设置 */
+      Encoder_ConfigStructure.IC1Polarity = ENCODER_IC1_POLARITY;
+      Encoder_ConfigStructure.IC1Selection = TIM_ICSELECTION_DIRECTTI;
+      Encoder_ConfigStructure.IC1Prescaler = TIM_ICPSC_DIV1;
+      Encoder_ConfigStructure.IC1Filter = 0;
+      /* 编码器接口通道2设置 */
+      Encoder_ConfigStructure.IC2Polarity = ENCODER_IC2_POLARITY;
+      Encoder_ConfigStructure.IC2Selection = TIM_ICSELECTION_DIRECTTI;
+      Encoder_ConfigStructure.IC2Prescaler = TIM_ICPSC_DIV1;
+      Encoder_ConfigStructure.IC2Filter = 0;
+      /* 初始化编码器接口 */
+      HAL_TIM_Encoder_Init(&TIM_EncoderHandle, &Encoder_ConfigStructure);
+
+      /* 清零计数器 */
+      __HAL_TIM_SET_COUNTER(&TIM_EncoderHandle, 0);
+
+      /* 清零中断标志位 */
+      __HAL_TIM_CLEAR_IT(&TIM_EncoderHandle,TIM_IT_UPDATE);
+      /* 使能定时器的更新事件中断 */
+      __HAL_TIM_ENABLE_IT(&TIM_EncoderHandle,TIM_IT_UPDATE);
+      /* 设置更新事件请求源为：定时器溢出 */
+      __HAL_TIM_URS_ENABLE(&TIM_EncoderHandle);
+
+      /* 设置中断优先级 */
+      HAL_NVIC_SetPriority(ENCODER_TIM_IRQn, 5, 1);
+      /* 使能定时器中断 */
+      HAL_NVIC_EnableIRQ(ENCODER_TIM_IRQn);
+
+      /* 使能编码器接口 */
+      HAL_TIM_Encoder_Start(&TIM_EncoderHandle, TIM_CHANNEL_ALL);
+    }
+
+有关编码器接口配置的内容在减速电机章节已经说明，这里再重复说明一下编码器接口结构体TIM_Encoder_InitTypeDef的初始化。
+
+首先需要设置编码器的倍频数，即成员EncoderMode，它可把编码器接口设置为2倍频或4倍频，我们将其设置为4倍频。
+
+接下来对编码器接口输入通道进行配置，通道1的配置和通道2是一样的。
+
+成员IC1Polarity在编码器模式中是用来设置输入信号是否反相的。设置为RISING表示不反相，FALLING表示反相。此成员与编码器的计数触发边沿无关，
+只用来匹配编码器和电机的方向，当设定的电机正方向与编码器正方向不一致时不必更改硬件连接，直接在程序中修改IC1Polarity即可。
+
+成员IC1Selection，用于选择输入通道，IC1可以是TI1输入的TI1FP1，也可以是从TI2输入的TI2FP1，我们这里选择直连（DIRECTTI），即TI1FP1映射到IC1，
+在编码器模式下这个成员只能设置为DIRECTTI，其他可选值都是不起作用的。
+
+成员IC1Prescaler和成员IC1Filter，我们需要对编码器的每个脉冲信号都进行捕获，所以设置成不分频。根据STM32编码器接口2倍频或4倍频的原理，
+接口在倍频采样的过程中也会对信号抖动进行补偿，所以输入滤波器也很少会用到。
+
+配置完编码器接口结构体后清零计数器，然后开启定时器的更新事件中断，并把更新事件中断源配置为定时器溢出，也就是仅当定时器溢出时才触发更新事件中断。
+然后配置定时器的中断优先级并开启中断，最后启动编码器接口。
+
+(4) 定时器溢出次数记录
+
+.. code-block:: c
+   :caption: bsp_encoder.c-定时器溢出次数记录
+   :linenos:
+
+    /**
+      * @brief  定时器更新事件回调函数
+      * @param  无
+      * @retval 无
+      */
+    void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+    {
+      /* 判断当前计数器计数方向 */
+      if(__HAL_TIM_IS_TIM_COUNTING_DOWN(&TIM_EncoderHandle))
+        /* 下溢 */
+        Encoder_Overflow_Count--;
+      else
+        /* 上溢 */
+        Encoder_Overflow_Count++;
+    }
+
+定时器溢出次数记录的说明与减速电机章节相同，此处不再赘述。
+
+(5) 主函数
+
+.. code-block:: c
+   :caption: main.c-主函数
+   :linenos:
+
+    /* 电机旋转方向 */
+    __IO int8_t motor_direction = 0;
+    /* 当前时刻总计数值 */
+    __IO int32_t capture_count = 0;
+    /* 上一时刻总计数值 */
+    __IO int32_t last_count = 0;
+    /* 单位时间内总计数值 */
+    __IO int32_t count_per_unit = 0;
+    /* 电机转轴转速 */
+    __IO float shaft_speed = 0.0f;
+    /* 累积圈数 */
+    __IO float number_of_rotations = 0.0f;
+
+    /**
+      * @brief  主函数
+      * @param  无
+      * @retval 无
+      */
+    int main(void) 
+    {
+      int i = 0;
+      
+      /* 初始化系统时钟为168MHz */
+      SystemClock_Config();
+      /*初始化USART 配置模式为 115200 8-N-1，中断接收*/
+      DEBUG_USART_Config();
+      printf("欢迎使用野火 电机开发板 步进电机 编码器测速 例程\r\n");
+      printf("按下按键1启动电机、按键2停止、按键3改变方向\r\n");	
+      /* 初始化时间戳 */
+      HAL_InitTick(5);
+      /*按键初始化*/
+      Key_GPIO_Config();	
+      /*led初始化*/
+      LED_GPIO_Config();
+      /*步进电机初始化*/
+      stepper_Init();
+      /* 上电默认停止电机，按键1启动 */
+      MOTOR_EN(OFF);
+      /* 编码器接口初始化 */
+      Encoder_Init();
+      
+      while(1)
+      {
+        /* 扫描KEY1，启动电机 */
+        if(Key_Scan(KEY1_GPIO_PORT,KEY1_PIN) == KEY_ON)
+        {
+          MOTOR_EN(ON);
+        }
+        /* 扫描KEY2，停止电机 */
+        if(Key_Scan(KEY2_GPIO_PORT,KEY2_PIN) == KEY_ON)
+        {
+          MOTOR_EN(OFF);
+        }
+        /* 扫描KEY3，改变方向 */
+        if(Key_Scan(KEY3_GPIO_PORT,KEY3_PIN) == KEY_ON)
+        {
+          static int j = 0;
+          j > 0 ? MOTOR_DIR(CCW) : MOTOR_DIR(CW);
+          j=!j;
+        }
+        
+        /* 20ms计算一次 */
+        /* 电机旋转方向 = 计数器计数方向 */
+        motor_direction = __HAL_TIM_IS_TIM_COUNTING_DOWN(&TIM_EncoderHandle);
+        
+        /* 当前时刻总计数值 = 计数器值 + 计数溢出次数 * ENCODER_TIM_PERIOD  */
+        capture_count =__HAL_TIM_GET_COUNTER(&TIM_EncoderHandle) + (Encoder_Overflow_Count * ENCODER_TIM_PERIOD);
+        
+        /* 单位时间内总计数值 = 当前时刻总计数值 - 上一时刻总计数值 */
+        count_per_unit = capture_count - last_count;
+        
+        /* 转轴转速 = 单位时间内的计数值 / 编码器总分辨率 * 时间系数  */
+        shaft_speed = (float)count_per_unit / ENCODER_TOTAL_RESOLUTION * 50 ;
+        
+        /* 累积圈数 = 当前时刻总计数值 / 编码器总分辨率  */
+        number_of_rotations = (float)capture_count / ENCODER_TOTAL_RESOLUTION;
+
+        /* 记录当前总计数值，供下一时刻计算使用 */
+        last_count = capture_count;
+        
+        if(i == 50)/* 1s报告一次 */
+        {
+          printf("\r\n电机方向：%d\r\n", motor_direction);
+          printf("单位时间内有效计数值：%d\r\n", (count_per_unit<0 ? abs(count_per_unit) : count_per_unit));
+          printf("步进电机转速：%.2f 转/秒\r\n", shaft_speed);
+          printf("累计圈数：%.2f 圈\r\n", number_of_rotations);
+          i = 0;
+        }
+        delay_ms(20);
+        i++;
+      }
+    } 	
+
+本实验的主函数与步进电机按键调速基本相同，在初始化的时候调用Encoder_Init函数，初始化和配置STM32的编码器接口。
+
+最大的差别就是在while循环中加入了数据计算的部分。如上代码所示，首先定义了一些全局变量，用来保存计算数据和供其他函数使用。
+在while循环中加入了一个20ms的延时，每执行一次while循环就采集数据和计算，
+由于使用了在while循环中延时的方法，单位时间会有波动，不过波动很小，不影响本实验的结果。
+如果很在意数据稳定性，可以使用减速电机 :ref:`减速电机编码器测速实验` **数据计算** 章节在SysTick中断回调函数中采集和计算数据的方式。
+
+在采集数据和计算时，先检测电机旋转方向，直接读取当前时刻的计数器计数方向就可获得方向，向上计数为正向，向下计数为反向。
+
+接着是测量当前时刻的总计数值，根据总计数值计算电机转速，在本例程中我们使用M法进行测速，单位时间内的计数值除以编码器总分辨率即可得到单位时间内的电机转速，
+代码中单位时间为20ms，单位时间内的计数值由当前时刻总计数值count_per_unit减上一时刻总计数值last_Count得到，编码器总分辨率由编码器物理分辨率乘倍频数得到，
+这里算出来的电机转速单位是转/百毫秒，转到常用的单位还需要乘上一个时间系数，比如转/秒就乘50,此时计算出的速度就是步进电机的速度。
+
+所有数据全部采集和计算完毕后，将电机方向、单位时间内的计数值、电机转轴转速和电机输出轴转速等数据全部通过串口打印到窗口调试助手上，
+并将当前的总计数值记录下来方便下次计算使用。
+
+
+
 下载验证
 --------
+
+保证开发板相关硬件连接正确，用USB线连接开发板“USB转串口”接口跟电脑，在电脑端打开串口调试助手，把编译好的程序下载到开发板，串口调试助手会显示程序输出的信息。
+我们通过开发板上的三个按键控制电机加减速和方向，在串口调试助手的接收区即可看到电机转速等信息。
+
+.. image:: ../media/步进电机测速实验现象.png
+   :align: center
+   :alt: 步进电机测速实验现象
