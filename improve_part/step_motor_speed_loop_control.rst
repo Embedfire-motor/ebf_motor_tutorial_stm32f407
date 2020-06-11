@@ -376,20 +376,88 @@ main函数中主要就是一些外设的初始化，包括PID控制器的目标�
 ^^^^^^^^^
 下载程序后，打开野火多功能调试助手，按KEY3启动步进电机，从调试助手的PID调试界面可以看到步进电机的速度变化曲线。
 
-.. 步进电机速度环控制--增量式PID
-.. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.. image:: ../media/待补全.png
+   :align: center
+   :alt: 步进电机速度环位置式PID控制效果
 
-.. 硬件设计
-.. ----------
-.. 本实验的硬件设计与上一个位置式PID实验中的硬件设计完全一致，所以这里不再赘述。
 
-.. 软件设计
-.. ----------
-.. 这里只讲解核心的部分代码，有些变量的设置，头文件的包含等并没有涉及到，完整的代码请参考本章配套的工程。
-.. 我们创建了两个文件：bsp_advance_tim.c和bsp_advance_tim.h 文件用来存定时器驱动程序及相关宏定义。
+步进电机速度环控制--位置式PID
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. 编程要点
-.. ^^^^^^^^^
+本实验会结合之前章节的PID控制和步进电机编码器测速，来讲解如何使用位置式PID对步进电机进行速度闭环控制。
+学习本小节内容时，请打开配套的“步进电机速度环控制——位置式PID”工程配合阅读。
 
-.. 软件分析
-.. ^^^^^^^^^
+硬件设计
+----------
+
+本实验的硬件设计与上一个位置式PID实验中的硬件设计完全一致，所以这里不再赘述。
+
+软件设计
+----------
+这里只讲解核心的部分代码，有些变量的设置，头文件的包含等并没有涉及到，完整的代码请参考本章配套的工程。
+我们创建了4个文件：bsp_pid.c和bsp_pid.c文件用来存放PID控制器相关程序，
+bsp_stepper_ctrl.c、bsp_stepper_ctrl.h 文件用来存步进电机速度环控制程序及相关宏定义。
+
+编程要点
+^^^^^^^^^
+
+1. 定时器 IO 配置
+#. 步进电机、编码器相关外设初始化
+#. 速度闭环控制实现
+#. PID参数整定
+
+软件分析
+^^^^^^^^^
+
+**宏定义**
+
+.. code-block:: c
+   :caption: bsp_stepper_init.h-宏定义
+   :linenos:
+
+    /*宏定义*/
+    /*******************************************************/
+    //宏定义对应开发板的接口 1 、2 、3 、4
+    #define CHANNEL_SW 1
+
+    #if(CHANNEL_SW == 1)
+    //Motor 方向 
+    #define MOTOR_DIR_PIN                  	GPIO_PIN_1   
+    #define MOTOR_DIR_GPIO_PORT            	GPIOE                    
+    #define MOTOR_DIR_GPIO_CLK_ENABLE()   	__HAL_RCC_GPIOE_CLK_ENABLE()
+
+    //Motor 使能 
+    #define MOTOR_EN_PIN                  	GPIO_PIN_0
+    #define MOTOR_EN_GPIO_PORT            	GPIOE                       
+    #define MOTOR_EN_GPIO_CLK_ENABLE()    	__HAL_RCC_GPIOE_CLK_ENABLE()
+
+    //Motor 脉冲
+    #define MOTOR_PUL_IRQn                  TIM8_CC_IRQn
+    #define MOTOR_PUL_IRQHandler            TIM8_CC_IRQHandler
+
+    #define MOTOR_PUL_TIM                   TIM8
+    #define MOTOR_PUL_CLK_ENABLE()  		    __TIM8_CLK_ENABLE()
+
+    #define MOTOR_PUL_PORT       	     		  GPIOI
+    #define MOTOR_PUL_PIN             		  GPIO_PIN_5
+    #define MOTOR_PUL_GPIO_CLK_ENABLE()		  __HAL_RCC_GPIOI_CLK_ENABLE()
+
+    #define MOTOR_PUL_GPIO_AF               GPIO_AF3_TIM8
+    #define MOTOR_PUL_CHANNEL_x             TIM_CHANNEL_1
+
+    #elif(CHANNEL_SW == 2)
+    ... ... 
+    #elif(CHANNEL_SW == 3)
+    ... ... 
+    #elif(CHANNEL_SW == 4)
+    ... ... 
+    #endif
+
+    /*频率相关参数*/
+    //定时器时钟频率为：168MHz/(TIM_PRESCALER+1)
+    //其中高级定时器的频率为168MHz,其他定时器为84MHz
+    //168/(5+1)=28Mhz
+    //具体需要的频率可以自己计算
+    #define TIM_PRESCALER                6
+    // 定义定时器周期，输出比较模式周期设置为0xFFFF
+    #define TIM_PERIOD                   0xFFFF
