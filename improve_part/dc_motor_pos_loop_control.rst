@@ -360,165 +360,184 @@ PID的控制周期与控制效果是息息相关的。Capture_Count为捕获的�
 确保比较值不超过PWM_MAX_PERIOD_COUNT*0.48，在将结果用于PWM占空比的控制，最后将实际的脉冲数发送到上位机绘制变化的曲线。
 
 .. code-block:: c
-   :caption: bsp_debug_usart.c-串口数据解析
-   :linenos:
+  :caption: protocol.c-串口数据解析
+  :linenos:
 
-    void HAL_UART_AbortReceiveCpltCallback(UART_HandleTypeDef *husart)
+  /**
+  * @brief   接收的数据处理
+  * @param   void
+  * @return  -1：没有找到一个正确的命令.
+  */
+  int8_t receiving_process(void)
+  {
+    uint8_t frame_data[128];         // 要能放下最长的帧
+    uint16_t frame_len = 0;          // 帧长度
+    uint8_t cmd_type = CMD_NONE;     // 命令类型
+    
+    while(1)
     {
-      packet_head_t packet;
-        
-      packet.cmd = UART_RxBuffer[CMD_INDEX_VAL];
-      packet.len  = COMPOUND_32BIT(&UART_RxBuffer[LEN_INDEX_VAL]);     // 合成长度
-      packet.head = COMPOUND_32BIT(&UART_RxBuffer[HEAD_INDEX_VAL]);    // 合成包头
-      
-      if (packet.head == PACKET_HEAD)    // 检查包头
+      cmd_type = protocol_frame_parse(frame_data, &frame_len);
+      switch (cmd_type)
       {
-        /* 包头正确 */
-        if (check_sum(0, UART_RxBuffer, packet.len - 1) == UART_RxBuffer[packet.len - 1])    // 检查校验和是否正确
+        case CMD_NONE:
         {
-          switch(packet.cmd)
-          {
-            case SET_P_I_D_CMD:
-            {
-              uint32_t temp0 = COMPOUND_32BIT(&UART_RxBuffer[13]);
-              uint32_t temp1 = COMPOUND_32BIT(&UART_RxBuffer[17]);
-              uint32_t temp2 = COMPOUND_32BIT(&UART_RxBuffer[21]);
-              
-              float p_temp, i_temp, d_temp;
-              
-              p_temp = *(float *)&temp0;
-              i_temp = *(float *)&temp1;
-              d_temp = *(float *)&temp2;
-              
-              set_p_i_d(p_temp, i_temp, d_temp);    // 设置 P I D
-            }
-            break;
-
-            case SET_TARGET_CMD:
-            {
-              int actual_temp = COMPOUND_32BIT(&UART_RxBuffer[13]);    // 得到数据
-              
-              set_pid_target(actual_temp);    // 设置目标值
-            }
-            break;
-            
-            case START_CMD:
-            {
-              set_motor_enable();              // 启动电机
-            }
-            break;
-            
-            case STOP_CMD:
-            {
-              set_motor_disable();              // 停止电机
-            }
-            break;
-            
-            case RESET_CMD:
-            {
-              HAL_NVIC_SystemReset();          // 复位系统
-            }
-            break;
-            
-            case SET_PERIOD_CMD:
-            {
-              uint32_t temp = COMPOUND_32BIT(&UART_RxBuffer[13]);     // 周期数
-              SET_BASIC_TIM_PERIOD(temp);                             // 设置定时器周期1~1000ms
-            }
-            break;
-          }
+          return -1;
         }
+
+        case SET_P_I_D_CMD:
+        {
+          uint32_t temp0 = COMPOUND_32BIT(&frame_data[13]);
+          uint32_t temp1 = COMPOUND_32BIT(&frame_data[17]);
+          uint32_t temp2 = COMPOUND_32BIT(&frame_data[21]);
+          
+          float p_temp, i_temp, d_temp;
+          
+          p_temp = *(float *)&temp0;
+          i_temp = *(float *)&temp1;
+          d_temp = *(float *)&temp2;
+          
+          set_p_i_d(p_temp, i_temp, d_temp);    // 设置 P I D
+        }
+        break;
+
+        case SET_TARGET_CMD:
+        {
+          int actual_temp = COMPOUND_32BIT(&frame_data[13]);    // 得到数据
+          
+          set_pid_target(actual_temp);    // 设置目标值
+        }
+        break;
+        
+        case START_CMD:
+        {
+          set_motor_enable();              // 启动电机
+        }
+        break;
+        
+        case STOP_CMD:
+        {
+          set_motor_disable();              // 停止电机
+        }
+        break;
+        
+        case RESET_CMD:
+        {
+          HAL_NVIC_SystemReset();          // 复位系统
+        }
+        break;
+        
+        case SET_PERIOD_CMD:
+        {
+          uint32_t temp = COMPOUND_32BIT(&frame_data[13]);     // 周期数
+          SET_BASIC_TIM_PERIOD(temp);                             // 设置定时器周期1~1000ms
+        }
+        break;
+
+        default: 
+          return -1;
       }
     }
+  }
 
-这函数用于处理上位机发下的数据，可以使用上位机调整PID参数，使用上位机可以非常方便的调整PID参数，
+这函数用于处理上位机发下的数据，在主函数中循环调用，可以使用上位机调整PID参数，使用上位机可以非常方便的调整PID参数，
 这样可以不用每次修改PID参数时都要改代码、编译和下载代码；可以使用上位机设置目标速度；可以启动和停止电机；
 可以使用上位机复位系统；可以使用上位机设置定时器的周期；具体功能的实现请参考配套工程代码。
 
 .. code-block:: c
-   :caption: main.c-主函数
-   :linenos:
+  :caption: main.c-主函数
+  :linenos:
 
-    int main(void)
+  /**
+    * @brief  主函数
+    * @param  无
+    * @retval 无
+    */
+  int main(void)
+  {
+    int32_t target_location = CIRCLE_PULSES;
+    
+    /* HAL 库初始化 */
+    HAL_Init();
+    
+    /* 初始化系统时钟为168MHz */
+    SystemClock_Config();
+    
+    /* 初始化按键 GPIO */
+    Key_GPIO_Config();
+    
+    /* 初始化 LED */
+    LED_GPIO_Config();
+    
+    /* 协议初始化 */
+    protocol_init();
+    
+    /* 初始化串口 */
+    DEBUG_USART_Config();
+
+    /* 电机初始化 */
+    motor_init();
+    
+    /* 编码器接口初始化 */
+    Encoder_Init();
+    
+    /* 初始化基本定时器，用于处理定时任务 */
+    TIMx_Configuration();
+    
+    /* PID 参数初始化 */
+    PID_param_init();
+    
+  #if defined(PID_ASSISTANT_EN)
+    set_computer_value(SEND_STOP_CMD, CURVES_CH1, NULL, 0);    // 同步上位机的启动按钮状态
+    set_computer_value(SEND_TARGET_CMD, CURVES_CH1, &target_location, 1);     // 给通道 1 发送目标值
+  #endif
+
+    while(1)
     {
-      int32_t target_location = CIRCLE_PULSES;
+      /* 接收数据处理 */
+      receiving_process();
       
-      /* HAL 库初始化 */
-      HAL_Init();
-      
-      /* 初始化系统时钟为168MHz */
-      SystemClock_Config();
-      
-      /* 初始化按键 GPIO */
-      Key_GPIO_Config();
-      
-      /* 初始化 LED */
-      LED_GPIO_Config();
-      
-      /* 初始化串口 */
-      DEBUG_USART_Config();
-
-      /* 电机初始化 */
-      motor_init();
-      
-      /* 编码器接口初始化 */
-      Encoder_Init();
-      
-      /* 初始化基本定时器，用于处理定时任务 */
-      TIMx_Configuration();
-      
-      /* PID 参数初始化 */
-      PID_param_init();
-      
-    #if defined(PID_ASSISTANT_EN)
-      set_computer_value(SEND_STOP_CMD, CURVES_CH1, NULL, 0);    // 同步上位机的启动按钮状态
-      set_computer_value(SEND_TARGET_CMD, CURVES_CH1, &target_location, 1);     // 给通道 1 发送目标值
-    #endif
-
-      while(1)
+      /* 扫描KEY1 */
+      if( Key_Scan(KEY1_GPIO_PORT, KEY1_PIN) == KEY_ON)
       {
-        /* 扫描KEY1 */
-        if( Key_Scan(KEY1_GPIO_PORT, KEY1_PIN) == KEY_ON)
-        {
-        #if defined(PID_ASSISTANT_EN) 
-          set_computer_value(SEND_START_CMD, CURVES_CH1, NULL, 0);               // 同步上位机的启动按钮状态
-        #endif
-          set_pid_actual(target_location);    // 设置目标值
-          set_motor_enable();              // 使能电机
-        }
+      #if defined(PID_ASSISTANT_EN) 
+        set_computer_value(SEND_START_CMD, CURVES_CH1, NULL, 0);               // 同步上位机的启动按钮状态
+      #endif
+        set_pid_target(target_location);    // 设置目标值
+        set_motor_enable();                 // 使能电机
+      }
+      
+      /* 扫描KEY2 */
+      if( Key_Scan(KEY2_GPIO_PORT, KEY2_PIN) == KEY_ON)
+      {
+        set_motor_disable();     // 停止电机
+        set_computer_value(SEND_STOP_CMD, CURVES_CH1, NULL, 0);               // 同步上位机的启动按钮状态
+      }
+      
+      /* 扫描KEY3 */
+      if( Key_Scan(KEY3_GPIO_PORT, KEY3_PIN) == KEY_ON)
+      {
+        /* 增加一圈 */
+        target_location += CIRCLE_PULSES;
         
-        /* 扫描KEY2 */
-        if( Key_Scan(KEY2_GPIO_PORT, KEY2_PIN) == KEY_ON)
-        {
-          set_motor_disable();     // 停止电机
-          set_computer_value(SEND_STOP_CMD, CURVES_CH1, NULL, 0);               // 同步上位机的启动按钮状态
-        }
-        
-        /* 扫描KEY3 */
-        if( Key_Scan(KEY3_GPIO_PORT, KEY3_PIN) == KEY_ON)
-        {
-          /* 增大目标速度 */
-          target_location += CIRCLE_PULSES;
-          
-          set_pid_actual(target_location);
-        #if defined(PID_ASSISTANT_EN)
-          set_computer_value(SEND_TARGET_CMD, CURVES_CH1,  &target_location, 1);     // 给通道 1 发送目标值
-        #endif
-        }
+        set_pid_target(target_location);
+      #if defined(PID_ASSISTANT_EN)
+        set_computer_value(SEND_TARGET_CMD, CURVES_CH1,  &target_location, 1);     // 给通道 1 发送目标值
+      #endif
+      }
 
-        /* 扫描KEY4 */
-        if( Key_Scan(KEY4_GPIO_PORT, KEY4_PIN) == KEY_ON)
-        {
-          /* 减小目标速度 */
-          target_location -= CIRCLE_PULSES;
-          
-          set_pid_actual(target_location);
-        #if defined(PID_ASSISTANT_EN)
-          set_computer_value(SEND_TARGET_CMD, CURVES_CH1,  &target_location, 1);     // 给通道 1 发送目标值
-        #endif
-        }
+      /* 扫描KEY4 */
+      if( Key_Scan(KEY4_GPIO_PORT, KEY4_PIN) == KEY_ON)
+      {
+        /* 减少一圈 */
+        target_location -= CIRCLE_PULSES;
+        
+        set_pid_target(target_location);
+      #if defined(PID_ASSISTANT_EN)
+        set_computer_value(SEND_TARGET_CMD, CURVES_CH1,  &target_location, 1);     // 给通道 1 发送目标值
+      #endif
       }
     }
+  }
 
 在主函数里面首先做了一些外设的初始化，然后通过按键可以控制电机的启动、停止和目标速度的设定，
 在使用上位机的情况下这些操作也可以通过上位机完成。
