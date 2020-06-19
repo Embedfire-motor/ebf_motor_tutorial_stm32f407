@@ -58,6 +58,7 @@
    improve_part/dc_motor_multi_loop_control
    improve_part/step_motor_speed_loop_control
    improve_part/step_motor_pos_loop_control
+   improve_part/step_motor_double_loop_control
    improve_part/step_motor_T_speed
    improve_part/step_motor_S_speed
    improve_part/step_motor_linear_interpolation
