@@ -735,8 +735,9 @@ B-          黑色
       HAL_TIM_Base_Start_IT(&TIM_TimeBaseStructure);	
     }
 
-首先对定时器进行初始化，定时器模式配置函数主要就是对这结构体的成员进行初始化，然后通过相
-应的初始化函数把这些参数写入定时器的寄存器中。有关结构体的成员介绍请参考定时器详解章节。
+首先对定时器进行初始化，定时器模式配置函数主要就是对这结构体的成员进行初始化，
+然后通过相应的初始化函数把这些参数写入定时器的寄存器中。
+有关结构体的成员介绍请参考定时器详解章节。
 
 由于定时器坐在的APB总线不完全一致，所以说，定时器的时钟是不同的，在使能定时器时钟时必须特别注意，
 在这里使用的是定时器2，通用定时器的总线频率为84MHZ,分频参数选择为（84-1），也就是当计数器计数到1M时为一个周期，
@@ -986,22 +987,22 @@ OC_Pulse_num是我们定义的一个全局参数，用来指定占空比大小�
     :caption: 定时器比较中断
     :linenos:
 
-  /**
-    * @brief  定时器比较中断
-    * @param  htim：定时器句柄指针
-    *	@note 		无
-    * @retval 无
-    */
-  void HAL_TIM_OC_DelayElapsedCallback(TIM_HandleTypeDef *htim)
-  {
-    __IO uint16_t count;
-    
-    /*获取当前计数*/
-    count=__HAL_TIM_GET_COUNTER(htim);
-    /*设置比较数值*/
-    __HAL_TIM_SET_COMPARE(htim, MOTOR_PUL_CHANNEL_x, count + OC_Pulse_num);
+    /**
+      * @brief  定时器比较中断
+      * @param  htim：定时器句柄指针
+      *	@note 		无
+      * @retval 无
+      */
+    void HAL_TIM_OC_DelayElapsedCallback(TIM_HandleTypeDef *htim)
+    {
+      __IO uint16_t count;
+      
+      /*获取当前计数*/
+      count=__HAL_TIM_GET_COUNTER(htim);
+      /*设置比较数值*/
+      __HAL_TIM_SET_COMPARE(htim, MOTOR_PUL_CHANNEL_x, count + OC_Pulse_num);
 
-  }
+    }
 
 当定时器的比较数值达到后，就会产生中断，进入到这个定时器比较中断，中断中主要用于获取当前的计数值与设定下一次进入中断的时间。
 
