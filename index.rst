@@ -32,6 +32,7 @@
    :numbered:
 
    basis_part/motor_introduction
+   basis_part/classification_of_drives
    basis_part/stm32_time_detailed
    basis_part/DC_brushed_motor
    basis_part/brushed_current_vbus_gather
@@ -39,7 +40,6 @@
    basis_part/stepper_motor
    basis_part/brushless_DC_motor
    basis_part/detailed_encoder
-   basis_part/classification_of_drives
 
 
 
@@ -61,6 +61,7 @@
    improve_part/step_motor_double_loop_control
    improve_part/step_motor_T_speed
    improve_part/step_motor_S_speed
+   improve_part/step_motor_spta_control
    improve_part/step_motor_linear_interpolation
    improve_part/step_motor_circular_interpolation
    improve_part/BLDC_speed_loop_control
