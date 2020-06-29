@@ -517,31 +517,26 @@ MOS管搭建驱动板与主控板连接见下表所示。
       /*初始化定时器*/
       HAL_TIM_PWM_Init(&TIM_TimeBaseStructure);
 
-      /*PWM模式配置*/
+    	/*PWM模式配置*/
       TIM_OCInitStructure.OCMode = TIM_OCMODE_PWM1;
-      TIM_OCInitStructure.Pulse = 0;
-      TIM_OCInitStructure.OCPolarity = TIM_OCPOLARITY_LOW;
-      TIM_OCInitStructure.OCNPolarity = TIM_OCPOLARITY_LOW;
-      TIM_OCInitStructure.OCIdleState = TIM_OCIDLESTATE_SET;
-      TIM_OCInitStructure.OCNIdleState = TIM_OCNIDLESTATE_RESET;
-      
-      TIM_OCInitStructure.OCMode = TIM_OCMODE_PWM1;//配置为PWM模式1
-      TIM_OCInitStructure.Pulse = PWM_PERIOD_COUNT/2;//默认占空比为50%
+    	TIM_OCInitStructure.Pulse = 0;
+    	TIM_OCInitStructure.OCPolarity = TIM_OCPOLARITY_HIGH;
+    	TIM_OCInitStructure.OCNPolarity = TIM_OCPOLARITY_HIGH;
+    	TIM_OCInitStructure.OCIdleState = TIM_OCIDLESTATE_SET;
+    	TIM_OCInitStructure.OCNIdleState = TIM_OCNIDLESTATE_RESET;
       TIM_OCInitStructure.OCFastMode = TIM_OCFAST_DISABLE;
-      /*当定时器计数值小于CCR1_Val时为高电平*/
-      TIM_OCInitStructure.OCPolarity = TIM_OCPOLARITY_HIGH;
-
-      /*配置PWM通道*/
+    	
+    	/*配置PWM通道*/
       HAL_TIM_PWM_ConfigChannel(&TIM_TimeBaseStructure, &TIM_OCInitStructure, PWM_CHANNEL_1);
-      /*开始输出PWM*/
-      HAL_TIM_PWM_Start(&TIM_TimeBaseStructure,PWM_CHANNEL_1);
-
-      /*配置脉宽*/
-      TIM_OCInitStructure.Pulse = PWM_PERIOD_COUNT/2;    // 默认占空比为50%
-      /*配置PWM通道*/
+    	/*开始输出PWM*/
+    	HAL_TIM_PWM_Start(&TIM_TimeBaseStructure,PWM_CHANNEL_1);
+    	
+    	/*配置脉宽*/
+      TIM_OCInitStructure.Pulse = 0;    // 默认占空比为50%
+    	/*配置PWM通道*/
       HAL_TIM_PWM_ConfigChannel(&TIM_TimeBaseStructure, &TIM_OCInitStructure, PWM_CHANNEL_2);
-      /*开始输出PWM*/
-      HAL_TIM_PWM_Start(&TIM_TimeBaseStructure,PWM_CHANNEL_2);
+    	/*开始输出PWM*/
+    	HAL_TIM_PWM_Start(&TIM_TimeBaseStructure,PWM_CHANNEL_2);
     }
 
 首先定义两个定时器初始化结构体，定时器模式配置函数主要就是对这两个结构体的成员进行初始化，
@@ -648,61 +643,79 @@ ChannelPulse是我们定义的一个无符号16位整形的全局变量，用来
 .. code-block:: c
    :caption: main
    :linenos:
+	
+	  /**
+	    * @brief  主函数
+	    * @param  无
+	    * @retval 无
+	    */
+	  int main(void) 
+	  {
+	  	__IO uint16_t ChannelPulse = PWM_MAX_PERIOD_COUNT/2;
+	  	uint8_t i = 0;
+	  
+	  	/* 初始化系统时钟为168MHz */
+	  	SystemClock_Config();
+	  
+	  	/* 初始化按键GPIO */
+	  	Key_GPIO_Config();
+	  
+	  	/* 电机初始化 */
+	  	motor_init();
+	  
+	  	set_motor_disable();
+	  	set_motor_speed(ChannelPulse);
+	  	
+	  	while(1)
+	  	{
+	      /* 扫描KEY1 */
+	      if( Key_Scan(KEY1_GPIO_PORT, KEY1_PIN) == KEY_ON)
+	      {
+	        /* 使能电机 */
+	        set_motor_enable();
+	      }
+	      
+	      /* 扫描KEY2 */
+	      if( Key_Scan(KEY2_GPIO_PORT, KEY2_PIN) == KEY_ON)
+	      {
+	        set_motor_disable();
+	      }
+	      
+	      /* 扫描KEY3 */
+	      if( Key_Scan(KEY3_GPIO_PORT, KEY3_PIN) == KEY_ON)
+	      {
+	        /* 增大占空比 */
+	        ChannelPulse += PWM_MAX_PERIOD_COUNT/10;
+	        
+	        if(ChannelPulse > PWM_MAX_PERIOD_COUNT)
+	          ChannelPulse = PWM_MAX_PERIOD_COUNT;
+	        
+	        set_motor_speed(ChannelPulse);
+	      }
+	      
+	      /* 扫描KEY4 */
+	      if( Key_Scan(KEY4_GPIO_PORT, KEY4_PIN) == KEY_ON)
+	      {
+	        if(ChannelPulse < PWM_MAX_PERIOD_COUNT/10)
+	          ChannelPulse = 0;
+	        else
+	          ChannelPulse -= PWM_MAX_PERIOD_COUNT/10;
+	        
+	        set_motor_speed(ChannelPulse);
+	      }
+	      
+	      /* 扫描KEY5 */
+	      if( Key_Scan(KEY5_GPIO_PORT, KEY5_PIN) == KEY_ON)
+	      {
+	        /* 转换方向 */
+	        set_motor_direction( (++i % 2) ? MOTOR_FWD : MOTOR_REV);
+	      }
+	  	}
+	  }
 
-    int main(void)
-    {
-      __IO uint16_t ChannelPulse = 0;
-      uint8_t i = 0;
-
-      /* 初始化系统时钟为168MHz */
-      SystemClock_Config();
-
-      /* 初始化按键GPIO */
-      Key_GPIO_Config();
-
-      /* 通用定时器初始化并配置PWM输出功能 */
-      TIMx_Configuration();
-
-      TIM1_SetPWM_pulse(PWM_CHANNEL_1,0);
-      TIM1_SetPWM_pulse(PWM_CHANNEL_2,0);
-
-      while(1)
-      {
-        /* 扫描KEY1 */
-        if( Key_Scan(KEY1_GPIO_PORT, KEY1_PIN) == KEY_ON)
-        {
-          /* 增大占空比 */
-          ChannelPulse += 50;
-
-          if(ChannelPulse > PWM_PERIOD_COUNT)
-            ChannelPulse = PWM_PERIOD_COUNT;
-
-          set_motor_speed(ChannelPulse);
-        }
-
-        /* 扫描KEY2 */
-        if( Key_Scan(KEY2_GPIO_PORT, KEY2_PIN) == KEY_ON)
-        {
-          if(ChannelPulse < 50)
-            ChannelPulse = 0;
-          else
-            ChannelPulse -= 50;
-          
-          set_motor_speed(ChannelPulse);
-        }
-        
-        /* 扫描KEY3 */
-        if( Key_Scan(KEY3_GPIO_PORT, KEY3_PIN) == KEY_ON)
-        {
-          /* 转换方向 */
-          set_motor_direction( (++i % 2) ? MOTOR_FWD : MOTOR_REV);
-        }
-      }
-    }
-
-首先初始化系统时钟，然后初始化定时器和按键，将占空比设置为0，即电机默认不转动。
-在死循环里面扫描按键，KEY1按键按下增加速度（占空比），KEY2按键按下减少速度（占空比），
-KEY3按键按下切换电机旋转方向。
+首先初始化系统时钟，然后初始化定时器和按键，将占空比设置为50%。
+在死循环里面扫描按键，KEY1按下使能电机驱动板，KEY2按下失能电机驱动板，KEY3按键按下增加速度（占空比），KEY4按键按下减少速度（占空比），
+KEY5按键按下切换电机旋转方向。
 
 下载验证
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -724,7 +737,7 @@ KEY3按键按下切换电机旋转方向。
 在上图中黄色波形为CH1通道，蓝色波形为CH2通道，按下一次KEY1后，能使PWM输出。此时可以通过计算示波器上显示的波形在占空比和频率，
 通过波形计算也与理论相符，这说明我们的PWM的配置是正确的，其中CH2通道的波形
 一直为低电平。当CH1和CH2都为低电平时，电机停止转动。当CH1上的平均电压大于电机的启动电压后电机就
-可以转动了，电源电压为12V，占空比为D,则平均电压为：12V*D。当按下KEY3后两通道输出相反，CH1一直为
+可以转动了，电源电压为12V，占空比为D,则平均电压为：12V*D。当按下KEY5后两通道输出相反，CH1一直为
 低电平，CH2为PWM波，电机反向转动。
 
 在确定PWM输出正确后我们就可以接上电机进行验证我们的程序了。

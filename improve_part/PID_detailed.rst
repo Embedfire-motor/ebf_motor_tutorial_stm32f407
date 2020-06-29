@@ -90,7 +90,7 @@ Ti越小，积分速度越快，积分作用越强。积分作用太强会使系
 这时候如果控制器只有一个比例环节进行调节的话，当系统处于稳态时，也就是放水的速度与注入水的速度即 **dx = 0** 时，可以推导出 **e**
 的关系式，**e** 在系统稳定时不为0，液位的高度就一直会有差那么一点点，这就是系统的 **静态误差**。
 
-当 **c** 是固定常数时，**kp** 越大就会使得 **e** 越小，即 **在有静差的情况下，增大比例系数有助于较小静差；**
+当 **c** 是固定常数时，**kp** 越大就会使得 **e** 越小，即 **在有静差的情况下，增大比例系数有助于减小静差；**
 
 具体如下图：
 
@@ -311,30 +311,28 @@ PID框图
    :caption: PID算法实现
    :linenos:
 
-    /**
-        * @brief  PID算法实现
-        * @param  val		目标值
-        *	@note 	无
-        * @retval 通过PID计算后的输出
-    */
-    float PID_realize(float temp_val)
-    {
-        /*传入目标值*/
-        pid.target_val=temp_val;
-        /*计算目标值与实际值的误差*/
-        pid.err=pid.target_val-pid.actual_val;
-        /*误差累积*/
-        pid.integral+=pid.err;
-        /*PID算法实现*/
-        pid.actual_val=pid.Kp*pid.err+pid.Ki*pid.integral+pid.Kd*(pid.err-pid.err_last);
-        /*误差传递*/
-        pid.err_last=pid.err;
-        /*返回当前实际值*/
-        return pid.actual_val;
-    }
+   /**
+     * @brief  PID算法实现
+     * @param  val		实际值
+     * @note 	无
+     * @retval 通过PID计算后的输出
+     */
+   float PID_realize(float temp_val)
+   {
+   	/*计算目标值与实际值的误差*/
+       pid.err=pid.target_val-temp_val;
+   	/*误差累积*/
+       pid.integral+=pid.err;
+   	/*PID算法实现*/
+       pid.actual_val=pid.Kp*pid.err+pid.Ki*pid.integral+pid.Kd*(pid.err-pid.err_last);
+   	/*误差传递*/
+       pid.err_last=pid.err;
+   	/*返回当前实际值*/
+       return pid.actual_val;
+   }
 
 这个函数是整个工程的核心，不算注释，10行左右的代码，就实现了位置式PID的算法；
-在PID_realize(float temp_val)函数中以传参的形式将目标值传入函数中，然后所有的计算数值都是pid结构体成员的运算；
+在PID_realize(float temp_val)函数中以传参的形式将实际值传入函数中，然后所有的计算数值都是pid结构体成员的运算；
 为了更好地理解从公式到算法的实现，可以仔细观察以下公式：
 
 .. image:: ../media/PID_lisan5.png
@@ -361,7 +359,7 @@ PID框图
     
     	if(!pid_status)
     	{
-        float val=PID_realize(set_point);
+        float val=PID_realize(pid.actual_val);
     
           int temp = val; 
           // 给通道 1 发送实际值
@@ -475,10 +473,8 @@ PID框图
     */
     float PID_realize(float temp_val)
     {
-        /*传入目标值*/
-        pid.target_val = temp_val;
         /*计算目标值与实际值的误差*/
-        pid.err=pid.target_val-pid.actual_val;
+        pid.err=pid.target_val-temp_val;
         /*PID算法实现*/
         float increment_val = pid.Kp*(pid.err - pid.err_next) + pid.Ki*pid.err + pid.Kd*(pid.err - 2 * pid.err_next + pid.err_last);
         /*累加*/
@@ -507,12 +503,6 @@ PID框图
 **增量式参数验证**
 
 将代码下载到开发板，调节参数并观察曲线变化，对于不同的PID参数，输出调节一定是不一样的，具体如下图：
-
-
-.. code-block::
-   :caption: PID调节输出
-   :linenos:
-
 
 .. image:: ../media/增量式曲线.png
    :align: center
