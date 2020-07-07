@@ -126,7 +126,7 @@ Q\ :sub:`5`\Q\ :sub:`2`\、Q\ :sub:`3`\Q\ :sub:`2`\、Q\ :sub:`3`\Q\ :sub:`6`\�
    :alt: 霍尔传感器安装位置
 
 转子每旋转一周可以输出6个不同的信号，这样正好可以满足我们条件。只要我们根据霍尔传感器输出的值来导通MOS管即可。
-通常厂家也会给出真值表。假设某厂家给出的真值表如下。
+通常厂家也会给出真值表。配套电机的真值表如下。
 
 =====  =====  =====  ====  ====  ====  ====  ====  ====
 霍尔a  霍尔b  霍尔c   A+    A-    B+    B-    C+    C-
@@ -153,13 +153,189 @@ Q\ :sub:`5`\Q\ :sub:`2`\、Q\ :sub:`3`\Q\ :sub:`2`\、Q\ :sub:`3`\Q\ :sub:`6`\�
    其内阻非常的小，电流就会非常的大，这将会产生大量的热而导致电源或者电机被烧毁。
 2. 在上面的三相六臂全桥驱动电路原理图中如果同时导通Q\ :sub:`1`\和Q\ :sub:`2`\，或者导通
    Q\ :sub:`3`\和Q\ :sub:`4`\，或者导通Q\ :sub:`5`\和Q\ :sub:`6`\，只要导通以上对应的两个MOS管，
-   都会导致电路中的电机不能正常工作，而MOS管直接将电源的正负极接通，这无疑将会烧毁电源。
+   都会导致电路中的电机不能正常工作，而MOS管直接将电源的正负极接通，这无疑将会烧毁电源或者MOS管。
 
 以上两个情况是我们电路设计和编程控制需要特别注意的，必须要避免以上情况的发生。
 
 驱动芯片与驱动电机设计与分析
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-**根据我们配套驱动器来讲解**
+野火无刷电机驱动板是使用MOS管搭建的大功率无刷电机驱动板，实物图如下图所示。
+
+.. image:: ../media/yh_dc_brush_motor_mos_h.png
+   :align: center
+   :alt: 野火无刷电机驱动板
+
+驱动板可支持12V~70V的宽电压输入，10A过电流保护电路，超过10A可自动禁用电机控制信号，最高功率支持700W。
+实际使用输入电压需要根据电机进行选择，同时还具有3相电流和反电动势采样电路、编码器（霍尔）接口和电源电压检测电路等等，
+本小节主要讲解电机驱动部分电路，其他功能将在后续章节中讲解。
+
+野火使用MOS管搭建的直流有刷驱动板做到了信号完全隔离，其他驱动板基本都只是使用光耦隔离了控制信号，
+并没有对ADC采样电路进行隔离，野火不仅使用光耦对控制信号进行了隔离，
+还使用AMC1200SDUBR隔离运放对ADC采样电路进行了隔离。
+
+PWM控制信号使用了TLP2362高速光耦进行了隔离，SD控制信号使用了EL357N光耦进行了隔离，如下图所示。
+
+.. image:: ../media/无刷驱动板-控制信号隔离电路.png
+   :align: center
+   :alt: 光耦隔离部分
+
+为了防止出现同一侧高端MOS管和低端MOS管同时导通的情况，我们在电路里面增加了异或门和与门，
+这样不管控制信号如果都不会存在同一侧高端MOS管和低端MOS管同时导通的情况。
+下面我们来分析是怎么做到的，这只看U相，如下图所示：
+
+.. image:: ../media/无刷驱动板-防烧管电路.png
+   :align: center
+   :alt: 一相防烧管电路
+
+- 当U+和U-同时为高时，则异或门3脚的输出为低电平，那么与门U24A的2脚就是低电平，所以与门输出低电平，即Motor_U+_IN为低电平。
+- 当U+和U-同时为低时，则异或门3脚的输出为低电平，那么与门U24A的2脚就是低电平，所以与门输出低电平，即Motor_U+_IN为低电平。
+- 当U+和U-任意一高一低时，则异或门3脚的输出为高电平，那么与门U24A的2脚就是高电平，所以与门U24A的3脚输出将与输入的引脚1电平是一样的。
+
+U相PWM信号隔离部分完整的输入输出真值表如下表所示：
+
+.. list-table:: PWM信号输入输出真值表
+    :widths: 40 40 40 40
+    :header-rows: 1
+    :align: center
+
+    * - 输入
+      - \-
+      - 输出
+      - \-
+    * - Motor_U+
+      - Motor_U-
+      - Motor_U+_IN
+      - Motor_U-_IN
+    * - H
+      - H
+      - L
+      - L
+    * - H
+      - L
+      - H
+      - L
+    * - L
+      - H
+      - L
+      - H
+    * - L
+      - L
+      - H
+      - H
+
+最下方的与门的作用是可以使单片机和过流保护电路共同控制SD脚，与门输入输出与MOS管状态真值表如下表所示。
+
+下图是使用MOS管搭建的U相半桥电路：
+
+.. image:: ../media/无刷驱动板-电桥电路.png
+   :align: center
+   :alt: U相电桥电路
+
+IR2110S主要功能有逻辑信号输入处理、电平转换功能和悬浮自举电源结构等。
+可以使MCU输出逻辑信号直接连接到IR2110S的输入通道上。IR2110S芯片有一个shutdown引脚，
+逻辑输入控制信号高电平有效，控制强行使LO、HO输出低电平。这样可以直接使用这个引脚做软件控制电机的旋转与停止，
+还可以实现硬件的限流保护（后续章节分析保护电路），输入信号和输出信号逻辑真值表如下表所示。
+
+.. list-table:: IR2110S输入信号和输出信号逻辑真值表
+    :widths: 10 10 10 10 10
+    :header-rows: 1
+    :align: center
+
+    * - SD
+      - HIN
+      - LIN
+      - HO
+      - LO
+    * - H
+      - \*
+      - \*
+      - L
+      - L
+    * - L
+      - L
+      - L
+      - L
+      - L
+    * - L
+      - H
+      - L
+      - H
+      - L
+    * - L
+      - L
+      - H
+      - L
+      - H
+    * - L
+      - H
+      - H
+      - H
+      - H
+
+其中*号表示不管输入为何种信号，输出都是固定的。
+
+从真值表可知，在输入逻辑信号SD为“H”时，不管IN为“H”或者“L”情况下，驱动器控制输出HO、LO同时为“L”，
+上、下功率管同时关断；当输入逻辑信号SD为“L”，HO跟随HIN变化，LO跟随LIN变化。
+
+电机主控板与无刷电机驱动板连接见下表所示。
+
+.. list-table:: 电机与无刷电机驱动板连接
+    :widths: 20 20
+    :header-rows: 1
+    :align: center
+
+    * - 电机
+      - 无刷电机驱动板
+    * - 粗黄
+      - U
+    * - 粗绿
+      - V
+    * - 粗蓝
+      - W
+    * - 细红
+      - +（编码器电源）
+    * - 细黑
+      - -（编码器电源）
+    * - 细黄
+      - HIU
+    * - 细绿
+      - HIV
+    * - 细蓝
+      - HIW
+
+无刷电机驱动板与主控板连接见下表所示。
+
+.. list-table:: 无刷电机驱动板与主控板连接
+    :widths: 20 20
+    :header-rows: 1
+    :align: center
+
+    * - 无刷电机驱动板
+      - 主控板
+    * - 5V_IN
+      - 5V
+    * - GND
+      - GND
+    * - U+
+      - PI5
+    * - U-
+      - PH13
+    * - V+
+      - PI6
+    * - V-
+      - PH14
+    * - W+
+      - PI7
+    * - W-
+      - PH15
+    * - HU
+      - PH10
+    * - HV
+      - PH11
+    * - HW
+      - PH12
+    * - SD
+      - PE6
 
 直流无刷减速电机控制实现
 -----------------------------------
@@ -239,7 +415,9 @@ bsp_bldcm_control.c和bsp_bldcmr_control.h文件用来存定时器驱动和电�
       当定时器从0计数到5599，即为5600次，为一个定时周期 */
    #define PWM_PERIOD_COUNT     (5600)
 
-   /* 高级控制定时器时钟源TIMxCLK = HCLK=168MHz 
+   #define PWM_MAX_PERIOD_COUNT    (PWM_PERIOD_COUNT - 100)
+
+   /* 高级控制定时器时钟源TIMxCLK = HCLK = 168MHz 
       设定定时器频率为=TIMxCLK/(PWM_PRESCALER_COUNT+1)/PWM_PERIOD_COUNT = 15KHz*/
    #define PWM_PRESCALER_COUNT     (2)
 
@@ -279,6 +457,8 @@ bsp_bldcm_control.c和bsp_bldcmr_control.h文件用来存定时器驱动和电�
    #define MOTOR_OCNPWM3_GPIO_CLK_ENABLE()	  __GPIOH_CLK_ENABLE()
    #define MOTOR_OCNPWM3_AF					        GPIO_AF3_TIM8
 
+   #define TIM_COM_TS_ITRx                   TIM_TS_ITR3    // 内部触发配置(TIM8->ITR3->TIM5)
+
    /* 霍尔传感器定时器 */
    #define HALL_TIM           				      TIM5
    #define HALL_TIM_CLK_ENABLE()  			    __TIM5_CLK_ENABLE()
@@ -292,25 +472,25 @@ bsp_bldcm_control.c和bsp_bldcmr_control.h文件用来存定时器驱动和电�
    /* 高级控制定时器时钟源TIMxCLK = HCLK / 2 = 84MHz
       设定定时器频率为 = TIMxCLK / (PWM_PRESCALER_COUNT + 1) / PWM_PERIOD_COUNT = 10.01Hz
       周期 T = 100ms */
-   #define HALL_PRESCALER_COUNT     (128-1)
+   #define HALL_PRESCALER_COUNT     (128)
 
    /* TIM5 通道 1 引脚 */
-   #define HALL_INPUT1_PIN           		    GPIO_PIN_10
-   #define HALL_INPUT1_GPIO_PORT     		    GPIOH
-   #define HALL_INPUT1_GPIO_CLK_ENABLE() 	  __GPIOH_CLK_ENABLE()
-   #define HALL_INPUT1_AF					          GPIO_AF2_TIM5
+   #define HALL_INPUTU_PIN           		    GPIO_PIN_10
+   #define HALL_INPUTU_GPIO_PORT     		    GPIOH
+   #define HALL_INPUTU_GPIO_CLK_ENABLE() 	  __GPIOH_CLK_ENABLE()
+   #define HALL_INPUTU_AF					          GPIO_AF2_TIM5
 
    /* TIM5 通道 2 引脚 */
-   #define HALL_INPUT2_PIN           		    GPIO_PIN_11
-   #define HALL_INPUT2_GPIO_PORT     		    GPIOH
-   #define HALL_INPUT2_GPIO_CLK_ENABLE() 	  __GPIOH_CLK_ENABLE()
-   #define HALL_INPUT2_AF					          GPIO_AF2_TIM5
+   #define HALL_INPUTV_PIN           		    GPIO_PIN_11
+   #define HALL_INPUTV_GPIO_PORT     		    GPIOH
+   #define HALL_INPUTV_GPIO_CLK_ENABLE() 	  __GPIOH_CLK_ENABLE()
+   #define HALL_INPUTV_AF					          GPIO_AF2_TIM5
 
    /* TIM5 通道 3 引脚 */
-   #define HALL_INPUT3_PIN           		    GPIO_PIN_12
-   #define HALL_INPUT3_GPIO_PORT     		    GPIOH
-   #define HALL_INPUT3_GPIO_CLK_ENABLE() 	  __GPIOH_CLK_ENABLE()
-   #define HALL_INPUT3_AF					          GPIO_AF2_TIM5
+   #define HALL_INPUTW_PIN           		    GPIO_PIN_12
+   #define HALL_INPUTW_GPIO_PORT     		    GPIOH
+   #define HALL_INPUTW_GPIO_CLK_ENABLE() 	  __GPIOH_CLK_ENABLE()
+   #define HALL_INPUTW_AF					          GPIO_AF2_TIM5
 
    #define HALL_TIM_IRQn                    TIM5_IRQn
    #define HALL_TIM_IRQHandler              TIM5_IRQHandler
@@ -325,46 +505,46 @@ bsp_bldcm_control.c和bsp_bldcmr_control.h文件用来存定时器驱动和电�
 
    static void TIMx_GPIO_Config(void) 
    {
-   /*定义一个GPIO_InitTypeDef类型的结构体*/
-   GPIO_InitTypeDef GPIO_InitStructure;
+      /*定义一个GPIO_InitTypeDef类型的结构体*/
+      GPIO_InitTypeDef GPIO_InitStructure;
 
-   /*开启定时器相关的GPIO外设时钟*/
-   MOTOR_OCPWM1_GPIO_CLK_ENABLE();
-   MOTOR_OCNPWM1_GPIO_CLK_ENABLE();
-   MOTOR_OCPWM2_GPIO_CLK_ENABLE();
-   MOTOR_OCNPWM2_GPIO_CLK_ENABLE();
-   MOTOR_OCPWM3_GPIO_CLK_ENABLE();
-   MOTOR_OCNPWM3_GPIO_CLK_ENABLE();
+      /*开启定时器相关的GPIO外设时钟*/
+      MOTOR_OCPWM1_GPIO_CLK_ENABLE();
+      MOTOR_OCNPWM1_GPIO_CLK_ENABLE();
+      MOTOR_OCPWM2_GPIO_CLK_ENABLE();
+      MOTOR_OCNPWM2_GPIO_CLK_ENABLE();
+      MOTOR_OCPWM3_GPIO_CLK_ENABLE();
+      MOTOR_OCNPWM3_GPIO_CLK_ENABLE();
 
-   /* 定时器功能引脚初始化 */															   
-   GPIO_InitStructure.Pull = GPIO_NOPULL;
-   GPIO_InitStructure.Speed = GPIO_SPEED_HIGH;
-   GPIO_InitStructure.Mode = GPIO_MODE_OUTPUT_PP;   // 推挽输出模式
+      /* 定时器功能引脚初始化 */															   
+      GPIO_InitStructure.Pull = GPIO_NOPULL;
+      GPIO_InitStructure.Speed = GPIO_SPEED_HIGH;
+      GPIO_InitStructure.Mode = GPIO_MODE_OUTPUT_PP;   // 推挽输出模式
 
-   GPIO_InitStructure.Pin = MOTOR_OCNPWM1_PIN;
-   HAL_GPIO_Init(MOTOR_OCNPWM1_GPIO_PORT, &GPIO_InitStructure);	
+      GPIO_InitStructure.Pin = MOTOR_OCNPWM1_PIN;
+      HAL_GPIO_Init(MOTOR_OCNPWM1_GPIO_PORT, &GPIO_InitStructure);	
 
-   GPIO_InitStructure.Pin = MOTOR_OCNPWM2_PIN;	
-   HAL_GPIO_Init(MOTOR_OCNPWM2_GPIO_PORT, &GPIO_InitStructure);
+      GPIO_InitStructure.Pin = MOTOR_OCNPWM2_PIN;	
+      HAL_GPIO_Init(MOTOR_OCNPWM2_GPIO_PORT, &GPIO_InitStructure);
 
-   GPIO_InitStructure.Pin = MOTOR_OCNPWM3_PIN;	
-   HAL_GPIO_Init(MOTOR_OCNPWM3_GPIO_PORT, &GPIO_InitStructure);	
+      GPIO_InitStructure.Pin = MOTOR_OCNPWM3_PIN;	
+      HAL_GPIO_Init(MOTOR_OCNPWM3_GPIO_PORT, &GPIO_InitStructure);	
 
-   /* 通道 2 */
-   GPIO_InitStructure.Mode = GPIO_MODE_AF_PP;  
+      /* 通道 2 */
+      GPIO_InitStructure.Mode = GPIO_MODE_AF_PP;  
 
-   GPIO_InitStructure.Pin = MOTOR_OCPWM1_PIN;
-   GPIO_InitStructure.Alternate = MOTOR_OCPWM1_AF;	
-   HAL_GPIO_Init(MOTOR_OCPWM1_GPIO_PORT, &GPIO_InitStructure);
+      GPIO_InitStructure.Pin = MOTOR_OCPWM1_PIN;
+      GPIO_InitStructure.Alternate = MOTOR_OCPWM1_AF;	
+      HAL_GPIO_Init(MOTOR_OCPWM1_GPIO_PORT, &GPIO_InitStructure);
 
-   GPIO_InitStructure.Pin = MOTOR_OCPWM2_PIN;	
-   GPIO_InitStructure.Alternate = MOTOR_OCPWM2_AF;	
-   HAL_GPIO_Init(MOTOR_OCPWM2_GPIO_PORT, &GPIO_InitStructure);
+      GPIO_InitStructure.Pin = MOTOR_OCPWM2_PIN;	
+      GPIO_InitStructure.Alternate = MOTOR_OCPWM2_AF;	
+      HAL_GPIO_Init(MOTOR_OCPWM2_GPIO_PORT, &GPIO_InitStructure);
 
-   /* 通道 3 */
-   GPIO_InitStructure.Pin = MOTOR_OCPWM3_PIN;	
-   GPIO_InitStructure.Alternate = MOTOR_OCPWM3_AF;	
-   HAL_GPIO_Init(MOTOR_OCPWM3_GPIO_PORT, &GPIO_InitStructure);
+      /* 通道 3 */
+      GPIO_InitStructure.Pin = MOTOR_OCPWM3_PIN;	
+      GPIO_InitStructure.Alternate = MOTOR_OCPWM3_AF;	
+      HAL_GPIO_Init(MOTOR_OCPWM3_GPIO_PORT, &GPIO_InitStructure);
    }
 
 定时器通道引脚使用之前必须设定相关参数，这选择复用功能，并指定到对应的定时器。
@@ -400,7 +580,7 @@ bsp_bldcm_control.c和bsp_bldcmr_control.h文件用来存定时器驱动和电�
       /*PWM模式配置*/
       //配置为PWM模式1
       TIM_OCInitStructure.OCMode = TIM_OCMODE_PWM1;
-      TIM_OCInitStructure.Pulse = 200;
+      TIM_OCInitStructure.Pulse = 0;                         // 默认必须要初始为0
       TIM_OCInitStructure.OCPolarity = TIM_OCPOLARITY_HIGH;
       TIM_OCInitStructure.OCNPolarity = TIM_OCNPOLARITY_HIGH;
       TIM_OCInitStructure.OCIdleState = TIM_OCIDLESTATE_SET;
@@ -409,15 +589,18 @@ bsp_bldcm_control.c和bsp_bldcmr_control.h文件用来存定时器驱动和电�
       HAL_TIM_PWM_ConfigChannel(&htimx_bldcm,&TIM_OCInitStructure,TIM_CHANNEL_1);    // 初始化通道 1 输出 PWM 
       HAL_TIM_PWM_ConfigChannel(&htimx_bldcm,&TIM_OCInitStructure,TIM_CHANNEL_2);    // 初始化通道 2 输出 PWM
       HAL_TIM_PWM_ConfigChannel(&htimx_bldcm,&TIM_OCInitStructure,TIM_CHANNEL_3);    // 初始化通道 3 输出 PWM
+      
+      /* 配置触发源 */
+      HAL_TIMEx_ConfigCommutationEvent(&htimx_bldcm, TIM_COM_TS_ITRx, TIM_COMMUTATION_SOFTWARE);
 
-      /* 关闭定时器通道1输出PWM */
-      HAL_TIM_PWM_Stop(&htimx_bldcm,TIM_CHANNEL_1);
+      /* 开启定时器通道1输出PWM */
+      HAL_TIM_PWM_Start(&htimx_bldcm,TIM_CHANNEL_1);
 
-      /* 关闭定时器通道2输出PWM */
-      HAL_TIM_PWM_Stop(&htimx_bldcm,TIM_CHANNEL_2);
+      /* 开启定时器通道2输出PWM */
+      HAL_TIM_PWM_Start(&htimx_bldcm,TIM_CHANNEL_2);
 
-      /* 关闭定时器通道3输出PWM */
-      HAL_TIM_PWM_Stop(&htimx_bldcm,TIM_CHANNEL_3);
+      /* 开启定时器通道3输出PWM */
+      HAL_TIM_PWM_Start(&htimx_bldcm,TIM_CHANNEL_3);
    }
 
 首先定义两个定时器初始化结构体，定时器模式配置函数主要就是对这两个结构体的成员进行初始化，然后通过相
@@ -432,7 +615,9 @@ PWM_PRESCALER_COUNT（2） - 1，频率为：168MHz/PWM_PERIOD_COUNT/PWM_PRESCAL
 
 在输出比较结构体中，设置输出模式为PWM1模式，通道输出高电平有效，设置脉宽为0。
 
-最后使用HAL_TIM_PWM_Stop函数确保计数器不开始计数和通道不输出PWM，这需要我们手动开启，默认不开启。
+触发源配置为软件触发。
+
+最后使用HAL_TIM_PWM_Start函数开启计数器，使能PWM输出。
 
 .. code-block:: c
    :caption: 霍尔传感器定时器模式配置
@@ -509,80 +694,69 @@ PWM_PRESCALER_COUNT（128） - 1，频率为：84MHz/PWM_PERIOD_COUNT/PWM_PRESCA
       uint8_t step = 0;
       step = get_hall_state();
 
-      if(get_bldcm_direction() == MOTOR_FWD)
+      if(get_bldcm_direction() != MOTOR_FWD)
       {
-         step = 7 - step;        // 根据顺序表的规律可知： CW = 7 - CCW;
+         step = 7 - step;        // 根据方向：REV = 7 - FWD;
       }
 
       switch(step)
       {
-         case 1://W+ U-
-            /*  Channe2 configuration  */ 
-            HAL_TIM_PWM_Stop(&htimx_bldcm, TIM_CHANNEL_2);     // 停止上桥臂 PWM 输出
+         case 1:    /* W+ U- */
+            __HAL_TIM_SET_COMPARE(&htimx_bldcm, TIM_CHANNEL_2, 0);                            // 通道 2 配置为 0
             HAL_GPIO_WritePin(MOTOR_OCNPWM2_GPIO_PORT, MOTOR_OCNPWM2_PIN, GPIO_PIN_RESET);    // 关闭下桥臂
          
-            /*  Channe3 configuration */
-            HAL_TIM_PWM_Start(&htimx_bldcm, TIM_CHANNEL_3);    // 开始上桥臂 PWM 输出
+            __HAL_TIM_SET_COMPARE(&htimx_bldcm, TIM_CHANNEL_3, bldcm_pulse);                  // 通道 3 配置的占空比
             HAL_GPIO_WritePin(MOTOR_OCNPWM1_GPIO_PORT, MOTOR_OCNPWM1_PIN, GPIO_PIN_SET);      // 开启下桥臂
             break;
          
-         case 2: //U+  V-
-            /*  Channe3 configuration */ 
-            HAL_TIM_PWM_Stop(&htimx_bldcm, TIM_CHANNEL_3);
-            HAL_GPIO_WritePin(MOTOR_OCNPWM3_GPIO_PORT, MOTOR_OCNPWM3_PIN, GPIO_PIN_RESET);
+         case 2:    /* U+  V -*/
+            __HAL_TIM_SET_COMPARE(&htimx_bldcm, TIM_CHANNEL_3, 0);                            // 通道 3 配置为 0
+            HAL_GPIO_WritePin(MOTOR_OCNPWM3_GPIO_PORT, MOTOR_OCNPWM3_PIN, GPIO_PIN_RESET);    // 关闭下桥臂
          
-            /*  Channel configuration  */
-            HAL_TIM_PWM_Start(&htimx_bldcm, TIM_CHANNEL_1);
-            HAL_GPIO_WritePin(MOTOR_OCNPWM2_GPIO_PORT, MOTOR_OCNPWM2_PIN, GPIO_PIN_SET);
+            __HAL_TIM_SET_COMPARE(&htimx_bldcm, TIM_CHANNEL_1, bldcm_pulse);                  // 通道 1 配置的占空比
+            HAL_GPIO_WritePin(MOTOR_OCNPWM2_GPIO_PORT, MOTOR_OCNPWM2_PIN, GPIO_PIN_SET);      // 开启下桥臂
             break;
          
-         case 3:// W+ V-
-            /*  Channel configuration */ 
-            HAL_TIM_PWM_Stop(&htimx_bldcm, TIM_CHANNEL_1);
-            HAL_GPIO_WritePin(MOTOR_OCNPWM1_GPIO_PORT, MOTOR_OCNPWM1_PIN, GPIO_PIN_RESET);
+         case 3:    /* W+ V- */
+            __HAL_TIM_SET_COMPARE(&htimx_bldcm, TIM_CHANNEL_1, 0);                            // 通道 1 配置为 0
+            HAL_GPIO_WritePin(MOTOR_OCNPWM1_GPIO_PORT, MOTOR_OCNPWM1_PIN, GPIO_PIN_RESET);    // 关闭下桥臂
       
-            /*  Channe3 configuration  */
-            HAL_TIM_PWM_Start(&htimx_bldcm, TIM_CHANNEL_3);
-            HAL_GPIO_WritePin(MOTOR_OCNPWM2_GPIO_PORT, MOTOR_OCNPWM2_PIN, GPIO_PIN_SET);
+            __HAL_TIM_SET_COMPARE(&htimx_bldcm, TIM_CHANNEL_3, bldcm_pulse);                  // 通道 3 配置的占空比
+            HAL_GPIO_WritePin(MOTOR_OCNPWM2_GPIO_PORT, MOTOR_OCNPWM2_PIN, GPIO_PIN_SET);      // 开启下桥臂
             break;
          
-         case 4:// V+ W-
-            /*  Channel configuration */ 
-            HAL_TIM_PWM_Stop(&htimx_bldcm, TIM_CHANNEL_1);
-            HAL_GPIO_WritePin(MOTOR_OCNPWM1_GPIO_PORT, MOTOR_OCNPWM1_PIN, GPIO_PIN_RESET);
+         case 4:    /* V+ W- */
+            __HAL_TIM_SET_COMPARE(&htimx_bldcm, TIM_CHANNEL_1, 0);                            // 通道 1 配置为 0
+            HAL_GPIO_WritePin(MOTOR_OCNPWM1_GPIO_PORT, MOTOR_OCNPWM1_PIN, GPIO_PIN_RESET);    // 关闭下桥臂
+            
+            __HAL_TIM_SET_COMPARE(&htimx_bldcm, TIM_CHANNEL_2, bldcm_pulse);                  // 通道 2 配置的占空比
+            HAL_GPIO_WritePin(MOTOR_OCNPWM3_GPIO_PORT, MOTOR_OCNPWM3_PIN, GPIO_PIN_SET);      // 开启下桥臂
+            break;
+         
+         case 5:    /* V+ U- */
+            __HAL_TIM_SET_COMPARE(&htimx_bldcm, TIM_CHANNEL_3, 0);                            // 通道 3 配置为 0
+            HAL_GPIO_WritePin(MOTOR_OCNPWM3_GPIO_PORT, MOTOR_OCNPWM3_PIN, GPIO_PIN_RESET);    // 关闭下桥臂
 
-            /*  Channe2 configuration */
-            HAL_TIM_PWM_Start(&htimx_bldcm, TIM_CHANNEL_2);
-            HAL_GPIO_WritePin(MOTOR_OCNPWM3_GPIO_PORT, MOTOR_OCNPWM3_PIN, GPIO_PIN_SET);    
+            __HAL_TIM_SET_COMPARE(&htimx_bldcm, TIM_CHANNEL_2, bldcm_pulse);                  // 通道 2 配置的占空比
+            HAL_GPIO_WritePin(MOTOR_OCNPWM1_GPIO_PORT, MOTOR_OCNPWM1_PIN, GPIO_PIN_SET);      // 开启下桥臂
             break;
          
-         case 5: // V+ U-
-            /*  Channe3 configuration */       
-            HAL_TIM_PWM_Stop(&htimx_bldcm, TIM_CHANNEL_3);
-            HAL_GPIO_WritePin(MOTOR_OCNPWM3_GPIO_PORT, MOTOR_OCNPWM3_PIN, GPIO_PIN_RESET);
-         
-            /*  Channe2 configuration */
-            HAL_TIM_PWM_Start(&htimx_bldcm, TIM_CHANNEL_2);
-         
-            HAL_GPIO_WritePin(MOTOR_OCNPWM1_GPIO_PORT, MOTOR_OCNPWM1_PIN, GPIO_PIN_SET);
-            break;
-         
-         case 6: // U+ W-
-            /*  Channe2 configuration */ 
-            HAL_TIM_PWM_Stop(&htimx_bldcm, TIM_CHANNEL_2);
-            HAL_GPIO_WritePin(MOTOR_OCNPWM2_GPIO_PORT, MOTOR_OCNPWM2_PIN, GPIO_PIN_RESET);
-         
-            /*  Channel configuration */
-            HAL_TIM_PWM_Start(&htimx_bldcm, TIM_CHANNEL_1); 
-            HAL_GPIO_WritePin(MOTOR_OCNPWM3_GPIO_PORT, MOTOR_OCNPWM3_PIN, GPIO_PIN_SET);
+         case 6:    /* U+ W- */
+            __HAL_TIM_SET_COMPARE(&htimx_bldcm, TIM_CHANNEL_2, 0);                            // 通道 2 配置为 0
+            HAL_GPIO_WritePin(MOTOR_OCNPWM2_GPIO_PORT, MOTOR_OCNPWM2_PIN, GPIO_PIN_RESET);    // 关闭下桥臂
+
+            __HAL_TIM_SET_COMPARE(&htimx_bldcm, TIM_CHANNEL_1, bldcm_pulse);                  // 通道 1 配置的占空比
+            HAL_GPIO_WritePin(MOTOR_OCNPWM3_GPIO_PORT, MOTOR_OCNPWM3_PIN, GPIO_PIN_SET);      // 开启下桥臂
             break;
       }
+      
+      HAL_TIM_GenerateEvent(&htimx_bldcm, TIM_EVENTSOURCE_COM);    // 软件产生换相事件，此时才将配置写入
 
       update = 0;
    }
 
 获取霍尔传感器引脚状态，根据厂家给出的真值表进行换相。将上桥臂采用PWM输出，下桥臂直接输出高电平。
-即为H_PWM-L_ON模式。将变量update设置为0。
+即为H_PWM-L_ON模式。将变量update设置为0，最好生成COM事件触发换相事件，将配置写入。
 
 .. code-block:: c
    :caption: 霍尔传感器更新回调
@@ -614,18 +788,18 @@ HAL_TIM_PeriodElapsedCallback函数将update加一，那么如果update大于1�
 
    int main(void) 
    {
-      __IO uint16_t ChannelPulse = 200;
+      __IO uint16_t ChannelPulse = PWM_MAX_PERIOD_COUNT/10;
       uint8_t i = 0;
-      
-      /* 此处省略各种初始化函数 */
-         
+   
+      /* 此处省略其他初始化函数 */
+
       /* 电机初始化 */
       bldcm_init();
-         
+      
       while(1)
       {
          /* 扫描KEY1 */
-         if( Key_Scan(KEY1_GPIO_PORT,KEY1_PIN) == KEY_ON  )
+         if( Key_Scan(KEY1_GPIO_PORT, KEY1_PIN) == KEY_ON)
          {
             /* 使能电机 */
             set_bldcm_speed(ChannelPulse);
@@ -633,44 +807,43 @@ HAL_TIM_PeriodElapsedCallback函数将update加一，那么如果update大于1�
          }
          
          /* 扫描KEY2 */
-         if( Key_Scan(KEY2_GPIO_PORT,KEY2_PIN) == KEY_ON  )
-         {
-            /* 增大占空比 */
-            ChannelPulse+=50;
-            
-            if(ChannelPulse>PWM_PERIOD_COUNT)
-            ChannelPulse=PWM_PERIOD_COUNT;
-            
-            set_bldcm_speed(ChannelPulse);
-         }
-         
-         /* 扫描KEY3 */
-         if( Key_Scan(KEY3_GPIO_PORT,KEY3_PIN) == KEY_ON  )
-         {
-            if(ChannelPulse<50)
-            ChannelPulse=0;
-            else
-            ChannelPulse-=50;
-
-            set_bldcm_speed(ChannelPulse);
-         }
-         
-         /* 扫描KEY4 */
-         if( Key_Scan(KEY4_GPIO_PORT,KEY4_PIN) == KEY_ON  )
-         {
-            /* 转换方向 */
-            set_bldcm_direction( (++i % 2) ? MOTOR_FWD : MOTOR_REV);
-         }
-         
-         /* 扫描KEY4 */
-         if( Key_Scan(KEY5_GPIO_PORT,KEY5_PIN) == KEY_ON  )
+         if( Key_Scan(KEY2_GPIO_PORT, KEY2_PIN) == KEY_ON)
          {
             /* 停止电机 */
             set_bldcm_disable();
          }
+         
+         /* 扫描KEY3 */
+         if( Key_Scan(KEY3_GPIO_PORT, KEY3_PIN) == KEY_ON)
+         {
+            /* 增大占空比 */
+            ChannelPulse += PWM_MAX_PERIOD_COUNT/10;
+            
+            if(ChannelPulse > PWM_MAX_PERIOD_COUNT)
+            ChannelPulse = PWM_MAX_PERIOD_COUNT;
+            
+            set_bldcm_speed(ChannelPulse);
+         }
+         
+         /* 扫描KEY4 */
+         if( Key_Scan(KEY4_GPIO_PORT, KEY4_PIN) == KEY_ON)
+         {
+            if(ChannelPulse < PWM_MAX_PERIOD_COUNT/10)
+            ChannelPulse = 0;
+            else
+            ChannelPulse -= PWM_MAX_PERIOD_COUNT/10;
+
+            set_bldcm_speed(ChannelPulse);
+         }
+         
+         /* 扫描KEY4 */
+         if( Key_Scan(KEY5_GPIO_PORT, KEY5_PIN) == KEY_ON)
+         {
+            /* 转换方向 */
+            set_bldcm_direction( (++i % 2) ? MOTOR_FWD : MOTOR_REV);
+         }
       }
    }
-
 在main函数中首先初始化了各种外设，在死循环中检测按键的变化，按KEY1可以启动电机；按KEY2可以增大PWM占空比，增加电机旋转速度；
 按KEY3可以减小PWM占空比，减小电机旋转速度；按KEY4可以使电机旋转方向改变；按KEY4可以停止电机旋转；
 
@@ -680,8 +853,4 @@ HAL_TIM_PeriodElapsedCallback函数将update加一，那么如果update大于1�
 按照要求电机和控制板连接好，可以按下KEY1、2、3、4、5对电机进行控制，当PWM减小到一定值时，电机会停止旋转，
 当堵转超时后LED1会亮起，并且停止PWM的输出，关闭电机防止长时间的大电流烧毁电机。 
 
-在确定PWM输出正确后我们就可以接上电机进行验证我们的程序了，实物连接如下图所示。
-
-.. image:: ../media/bldcm_key_control.jpg
-   :align: center
-   :alt: 无刷电机连接实物图
+在确定PWM输出正确后我们就可以接上电机进行验证我们的程序了。
