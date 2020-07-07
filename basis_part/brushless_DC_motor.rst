@@ -387,7 +387,8 @@ V=(Ua-IaRa)/CEφ
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 这里只讲解核心的部分代码，有些变量的设置，头文件的包含等并没有涉及到，完整的代码请
 参考本章配套的工程。我们创建了四个文件：bsp_motor_tim.c、bsp_motor_tim.h、
-bsp_bldcm_control.c和bsp_bldcmr_control.h文件用来存定时器驱动和电机控制程序及相关宏定义
+bsp_bldcm_control.c和bsp_bldcmr_control.h文件用来存定时器驱动和电机控制程序及相关宏定义。
+本章代码在野火电机驱动例程中:\\base_code\\basis_part\\F407\\直流无刷电机-按键控制目录下。
 
 编程要点
 """""""""""""""""
