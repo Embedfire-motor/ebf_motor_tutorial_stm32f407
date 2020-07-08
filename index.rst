@@ -39,6 +39,7 @@
    basis_part/steering_gear_control
    basis_part/stepper_motor
    basis_part/brushless_DC_motor
+   basis_part/brushless_temp_vbus_gather
    basis_part/detailed_encoder
 
 

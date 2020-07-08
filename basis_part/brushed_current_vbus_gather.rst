@@ -53,7 +53,7 @@ p点和n点没有电流到运放的5脚和6脚，可以得：
    :name: 差分转单端输出结果
 
 
-在下图中使用电压比较器LMV331SE实现10A过流保护电路，电流采样电路_ 中V\ :sub:`i`\经过隔离运放和普通运放后变成V\ :sub:`current_adc`\输入到下图比较器的IN-，
+在下图中使用电压比较器LMV331SE实现10A过流保护电路，电流采样电路中V\ :sub:`i`\经过隔离运放和普通运放后变成V\ :sub:`current_adc`\输入到下图比较器的IN-，
 当IN-的电压超过IN+时比较器的OUT将输出低电平到与门。
 
 .. image:: ../media/voltage_comparator.png
