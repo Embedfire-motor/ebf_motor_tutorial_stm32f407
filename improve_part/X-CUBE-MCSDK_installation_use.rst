@@ -136,7 +136,7 @@ ST Motor Control Workbench 的使用
 新建项目
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-以下示例工程在\base_code\improve_part\BLDC_FOC_V5.44_Hall_speed_control目录下。
+以下示例工程在\\base_code\\improve_part\\BLDC_FOC_V5.44_Hall_speed_control目录下。
 
 下图是双击MotorControl Workbench 5.4.4打开的界面，整个界面可以分为3个部分。
 
@@ -234,7 +234,7 @@ ST Motor Control Workbench 的使用
    :alt: MOS管参数配置
 
 如下图所示在这里可以设置死区时间和 MOS 管的最大开关频率，从数据手册中可以知道我们使用的 MOS
-管设置为100ns就可以。
+管死区时间设置为100ns就可以。
 
 .. image:: ../media/st_foc/Power_Stage-Power_Switches.png
    :align: center
@@ -255,7 +255,7 @@ ST Motor Control Workbench 的使用
 点击 Temperature Sensing 可以设置温度传感器相关参数，如下图所示。
 不过该配置只支持 ST 的温度传感器，因此这里我们只要设置好温度范围就可以了，
 其他参数可以不管，具体的温度获取函数需要我们根据配套的传感器来实现。
-这里设置传感器最采集温度为120℃，然后使能传感器和温度保护，并将温度最大保护电压设置为80℃。
+这里设置传感器最高采集温度为120℃，然后使能传感器和温度保护，并将温度最大保护电压设置为80℃。
 
 .. image:: ../media/st_foc/Temperature_Sensing.png
    :align: center
@@ -309,7 +309,7 @@ ST Motor Control Workbench 的使用
    :align: center
    :alt: 固件保护配置
 
-** FreeRTOS **
+**FreeRTOS**
 
 点击 Fimware Drive Management 后，选择 FreeRTOS，如下图所示，
 这里可以选择是否启用 FreeRTOS 操作系统，这里我们不需要就不启用了。
@@ -381,7 +381,7 @@ Start/Stop Button 选择使能，Serial Communication 中使能串口，使用 B
 
 点击 Pin assignment 可以查看引脚的分配，Check 可以检查引脚是否有冲突，在检查OK后配置工作就完成了。
 
-.. image:: ../media/st_foc/AC_Inof_input.png
+.. image:: ../media/st_foc/Pin_assignment.png
    :align: center
    :alt: 引脚分配与检查
 
@@ -430,7 +430,7 @@ Start/Stop Button 选择使能，Serial Communication 中使能串口，使用 B
 官方的 SDK 中函数都使用了 **__weak** 关键字，所以我们可以不改动源码，直接重新实现需要修改的函数就可以了，
 在电压部分共有两个函数需要重新实现，分别是 **uint16_t VBS_GetAvBusVoltage_V( BusVoltageSensor_Handle_t * pHandle )** 和
 **uint16_t RVBS_CheckFaultState( RDivider_Handle_t * pHandle )**，我们重新创建新建的源码文件，
-和SDK的命名基本一样只是在前面增加一个 **yh_** 前缀用于区分。新建的文件都放到了 **\USER\YH_MotorControl** 目录下，
+和SDK的命名基本一样只是在前面增加一个 **yh_** 前缀用于区分。新建的文件都放到了 **\\USER\\YH_MotorControl** 目录下，
 在yh_bus_voltage_sensor.c中增加VBS_GetAvBusVoltage_V函数源码如下：
 
 .. code-block:: c
@@ -643,3 +643,34 @@ Start/Stop Button 选择使能，Serial Communication 中使能串口，使用 B
 .. image:: ../media/st_foc/monitor.png
    :align: center
    :alt: 监视器
+
+连接到开发板后，可以通过 Start Motor 和 Stop Motor 来启动和停止电机，
+可以通过速度旋钮来调节目标速度，或者通过旋钮下方的编辑框来调节目标速度，
+编辑好后回车就可以发送目标速度。
+
+可以通过速度表盘来观察速度值，也可以通过 plotting 来观察实际速度与目标速度的关系，如下图所示。
+
+.. image:: ../media/st_foc/Plotting-Speed_measured_and_Speed_reference.png
+   :align: center
+   :alt: 速度观察曲线
+
+状态指示灯有3种颜色：
+
+- 绿色：正常状态
+- 红色：故障产生，并且没有被排除
+- 黄色：故障产生，但是已经被排除
+
+当故障故障产生时，对应的故障灯也会亮起，此时电机不能启动，需我们排除故障后才能启动电机。
+如下图所示，电机驱动板电压过低发生欠压故障，此时欠压故障灯和状态指示灯都为红色。
+
+.. image:: ../media/st_foc/fault_now_under_voltage.png
+   :align: center
+   :alt: 欠压故障
+
+如下图所示，当我们将电压调整为正常值后，欠压故障灯和状态指示灯都为黄色，此时可以电机 Fault Ack
+来确认这个故障已经解决，这样就可以正常的启动电机了。
+
+.. image:: ../media/st_foc/fault_over_under_voltage.png
+   :align: center
+   :alt: 欠压故障被排除
+
