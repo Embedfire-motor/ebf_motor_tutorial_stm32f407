@@ -170,12 +170,12 @@
 以上三种终点判别的方法，全部使用坐标的绝对值进行计算。
 
 第一象限直线插补实验
-------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 上一节讲解了逐点比较法的第一象限直线插补原理，接下来结合实验程序讲解具体实现。本实验讲解如何实现第一象限直线插补。学习本节内容时，
 请打开配套的“stepper—第一象限直线插补-逐点比较法”工程配合阅读。
 
 硬件设计
-^^^^^^^^^^^^^^^^^^^^^^^^
+------------------------
 本实验用到的步进电机与之前的步进电机例程相同，所以硬件连接上也基本相同，不同的是使用了2个步进电机，分别接入开发板的步进电机接口1、接口2中，
 如下图所示。接口1的步进电机对应X轴，接口2的步进电机对应Y轴。
 
@@ -184,20 +184,20 @@
    :alt: 第一象限直线插补实验硬件连接图
 
 软件设计
-^^^^^^^^^^^^^^^^^^^^^^^^
+------------------------
 本次第一象限直线插补例程是在步进电机按键控制例程的基础上编写的，这里只讲解跟直线插补有关的部分核心代码，有些变量的设置，头文件的包含等并没有涉及到，
 完整的代码请参考本章配套工程“stepper—第一象限直线插补-逐点比较法”。
 我们创建了两个文件：bsp_linear_interpolation.c 和 bsp_linear_interpolation.h 文件用来存放直线插补程序及相关变量定义。
 
 编程要点
-"""""""""""""""""""""""
+^^^^^^^^^^^^^^^^^^^^^^^^
 1. 步进电机定时器 IO 配置
 #. 步进电机定时器时基、中断配置
 #. 在定时器中完成直线插补的4个步骤
 #. 通过对直线参数的设置实现直线插补
 
 软件分析
-"""""""""""""""""""""""
+^^^^^^^^^^^^^^^^^^^^^^^^
 (1) 宏定义
 
 .. code-block:: c
@@ -541,9 +541,350 @@ main函数中主要就是一些外设的初始化，包括步进电机的定时�
 在main函数中输入的终点坐标参数中也对应步进电机的32细分。
 
 实验现象
-^^^^^^^^^^^^^^^^^^^^^^^^
-使用两轴丝杆滑台组成一个标准X-Y滑动平台，将步进电机连接好，下载程序到开发板后，按下开发板的按键，可以看到丝杆滑台上的滑块沿着程序设定的直线诡异运动。
+------------------------
+使用两轴丝杆滑台组成一个标准X-Y滑动平台，将步进电机连接好，下载程序到开发板后，按下开发板的按键，可以看到丝杆滑台上的滑块沿着程序设定的直线轨迹运动。
 
 任意象限直线插补
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
-阿斯达
+在前面的内容中，我们详细讲解了第一象限直线插补的原理和实现，不过实际应用中并不只有第一象限的直线，任意象限和方向的直线都可能会遇到，
+所以下面的内容将会讲解如果实现任意象限的直线插补。
+
+任意象限直线插补原理
+------------------------
+假设有一条起点坐标为原点，终点坐标为E\ :sup:`'`\的直线OE\ :sup:`'`\位于第二象限，如下图所示。
+图中直线OE\ :sup:`'`\和直线OE关于Y轴对称。对OE进行直线插补的时候，如果把原本沿+X方向的进给变成沿-X方向，
+也就是步进电机运动方向相反。那么实际插补出的就是第二象限的直线OE\ :sup:`'`\。
+
+.. image:: ../media/第二象限直线插补.png
+   :align: center
+   :alt: 第二象限直线插补
+
+同理，如果是插补第三象限的直线，由于其和第一象限直线OE关于原点对称，所以依旧可以按照第一象限直线OE插补，唯一不同的只是进给方向。
+
+综上可得，任意象限直线插补的方法都可用第一想象直线插补推出，偏差计算公式都相同，偏差值的计算使用坐标的绝对值。
+设L1、L2、L3、L4分别表示第1、2、3、4象限的直线，则任意象限直线插补的X、Y轴进给方向如下图所示。
+
+.. image:: ../media/任意象限直线插补进给方向图.png
+   :align: center
+   :alt: 任意象限直线插补进给方向图
+
+在上图中，靠近Y轴区域偏差F>0，靠近X轴区域偏差F<0。当F≥0时，进给都是沿X轴，动点坐标的X轴绝对值增大；
+当F<0时，进给都沿Y轴，动点坐标的Y轴绝对值增大。把以上内容整理成表格，如下表所示。
+
+.. image:: ../media/任意象限直线插补进给方向和偏差计算公式.png
+   :align: center
+   :alt: 任意象限直线插补进给方向和偏差计算公式
+
+至此，任意象限直线插补的原理已经讲解完毕，接下来开始讲解在程序中如何实现。
+
+任意象限直线插补实验
+------------------------
+本实验讲解如何实现任意象限的直线插补。学习本节内容时，请打开配套的“stepper—任意象限直线插补-逐点比较法”工程配合阅读。
+
+硬件设计
+^^^^^^^^^^^^^^^^^^^^^^^^
+本实验的硬件设计部分与上一个实验完全相同，在此不再赘述。如有不清楚的地方，请查看第一象限直线插补实验。
+
+软件设计
+^^^^^^^^^^^^^^^^^^^^^^^^
+1. 步进电机定时器 IO 配置
+#. 步进电机定时器时基、中断配置
+#. 在定时器中完成直线插补的4个步骤
+#. 通过直线坐标判断直线的方向
+#. 实现任意直线插补
+
+软件分析
+"""""""""""""""""""""""
+(1) 宏定义
+
+.. code-block:: c
+   :caption: bsp_stepper_init.h-宏定义
+   :linenos:
+
+    /*宏定义*/
+    /*******************************************************/
+    #define MOTOR_PUL_TIM                        TIM8
+    #define MOTOR_PUL_IRQn                       TIM8_UP_TIM13_IRQn
+    #define MOTOR_PUL_IRQHandler                 TIM8_UP_TIM13_IRQHandler
+    #define MOTOR_PUL_CLK_ENABLE()               __TIM8_CLK_ENABLE()
+    #define MOTOR_PUL_GPIO_AF                    GPIO_AF3_TIM8
+
+    /*********************X轴电机引脚定义*******************/
+    //Motor 方向
+    #define X_MOTOR_DIR_PIN                      GPIO_PIN_1
+    #define X_MOTOR_DIR_GPIO_PORT                GPIOE
+    #define X_MOTOR_DIR_GPIO_CLK_ENABLE()        __HAL_RCC_GPIOE_CLK_ENABLE()
+
+    //Motor 使能
+    #define X_MOTOR_EN_PIN                       GPIO_PIN_0
+    #define X_MOTOR_EN_GPIO_PORT                 GPIOE
+    #define X_MOTOR_EN_GPIO_CLK_ENABLE()         __HAL_RCC_GPIOE_CLK_ENABLE()
+
+    //Motor 脉冲
+    #define X_MOTOR_PUL_PORT                     GPIOI
+    #define X_MOTOR_PUL_PIN                      GPIO_PIN_5
+    #define X_MOTOR_PUL_GPIO_CLK_ENABLE()        __HAL_RCC_GPIOI_CLK_ENABLE()
+
+    //定时器通道
+    #define X_MOTOR_PUL_CHANNEL                  TIM_CHANNEL_1
+
+    /*********************Y轴电机引脚定义*******************/
+    //Motor 方向
+    #define Y_MOTOR_DIR_PIN                      GPIO_PIN_8
+    #define Y_MOTOR_DIR_GPIO_PORT                GPIOI          
+    #define Y_MOTOR_DIR_GPIO_CLK_ENABLE()        __HAL_RCC_GPIOI_CLK_ENABLE()
+
+    //Motor 使能
+    #define Y_MOTOR_EN_PIN                       GPIO_PIN_4
+    #define Y_MOTOR_EN_GPIO_PORT                 GPIOE                       
+    #define Y_MOTOR_EN_GPIO_CLK_ENABLE()         __HAL_RCC_GPIOE_CLK_ENABLE()
+
+    //Motor 脉冲
+    #define Y_MOTOR_PUL_PORT                     GPIOI
+    #define Y_MOTOR_PUL_PIN                      GPIO_PIN_6
+    #define Y_MOTOR_PUL_GPIO_CLK_ENABLE()        __HAL_RCC_GPIOI_CLK_ENABLE()
+
+    //定时器通道
+    #define Y_MOTOR_PUL_CHANNEL                  TIM_CHANNEL_2
+
+由于直线插补需要两个步进电机才能完成，所以在bsp_stepper_init.h中新增第二个步进电机的相关IO口和外设的宏定义。
+宏定义的具体内容与其他步进电机控制例程一致，故不再赘述。
+
+本实验中的步进电机相关初始化与上一实验完全相同，不再赘述。重点详解任意象限的插补实现。
+
+
+(2) 任意象限直线插补相关参数
+
+.. code-block:: c
+   :caption: bsp_linear_interpolation.h-任意象限直线插补参数
+   :linenos:
+
+    /* 坐标轴枚举 */
+    typedef enum{
+      x_axis = 0U,
+      y_axis
+    }Axis_TypeDef;
+
+    /* 直线插补参数结构体 */
+    typedef struct{
+      __IO uint32_t endpoint_x;           //终点坐标X
+      __IO uint32_t endpoint_y;           //终点坐标Y
+      __IO uint32_t endpoint_pulse;       //到达终点位置需要的脉冲数
+      __IO uint32_t active_axis;          //当前运动的轴
+      __IO int32_t deviation;             //偏差参数
+      __IO uint8_t motionstatus : 1;      //插补运动状态
+      __IO uint8_t dir_x : 1;             //X轴运动方向
+      __IO uint8_t dir_y : 1;             //Y轴运动方向
+    }LinearInterpolation_TypeDef;
+
+上述代码是任意象限直线插补的相关数据参数，同样由一个枚举和一个结构体构成，其中结构体中相比第一象限的插补多了三个成员变量，
+分别使用结构体位域定义，用来管理X、Y轴的运动方向和整个插补运动的状态。
+
+(3) 任意象限直线插补实现
+
+.. code-block:: c
+   :caption: bsp_linear_interpolation.c-任意象限直线插补实现
+   :linenos:
+
+    /**
+      * @brief  任意直线插补运动
+      * @param  coordi_x：终点坐标X的增量
+      * @param  coordi_y：终点坐标Y的增量
+      * @param  speed：进给速度，定时器计数值
+      * @retval 无
+      */
+    void Linear_Interpolation(int32_t coordi_x, int32_t coordi_y, uint16_t speed)
+    {
+      /* 判断当前是否正在做插补运动 */
+      if(interpolation_para.motionstatus != 0)
+        return;
+      
+      /* 判断坐标正负，以此决定各轴的运动方向 */
+      if(coordi_x < 0)
+      {
+        interpolation_para.dir_x = CCW;
+        coordi_x = -coordi_x;
+        MOTOR_DIR(step_motor[x_axis].dir_port, step_motor[x_axis].dir_pin, CCW);
+      }
+      else
+      {
+        interpolation_para.dir_x = CW;
+        MOTOR_DIR(step_motor[x_axis].dir_port, step_motor[x_axis].dir_pin, CW);
+      }
+      
+      if(coordi_y < 0)
+      {
+        interpolation_para.dir_y = CCW;
+        coordi_y = -coordi_y;
+        MOTOR_DIR(step_motor[y_axis].dir_port, step_motor[y_axis].dir_pin, CCW);
+      }
+      else
+      {
+        interpolation_para.dir_y = CW;
+        MOTOR_DIR(step_motor[y_axis].dir_port, step_motor[y_axis].dir_pin, CW);
+      }
+      
+      /* 开始插补运动 */
+      InterPolation_Move(coordi_x, coordi_y, speed);
+    }
+
+上述代码是实现任意象限直线插补的关键，Linear_Interpolation函数的入口参数是直线终点坐标值和进给速度。
+
+- 第15~25行：判断终点坐标的X值是否大于0，如果X<0，X轴步进电机反转，如果X>0，X轴步进电机正转，同时计算出坐标绝对值;
+- 第27~27行：判断终点坐标的Y值是否大于0，如果Y<0，Y轴步进电机反转，如果Y>0，Y轴步进电机正转，同时计算出坐标绝对值;
+- 第40行：设置完X、Y轴步进电机的运动方向之后，根据计算出的坐标绝对值开始执行插补运动。
+
+.. code-block:: c
+   :caption: bsp_linear_interpolation.c-直线插补运动
+   :linenos:
+
+    /**
+      * @brief  直线增量插补运动
+      * @param  inc_x：终点坐标X的增量
+      * @param  inc_y：终点坐标Y的增量
+      * @param  speed：进给速度
+      * @retval 无
+      */
+    void InterPolation_Move(uint32_t inc_x, uint32_t inc_y, uint16_t speed)
+    {
+      /* 偏差清零 */
+      interpolation_para.deviation = 0;
+      
+      /* 设置终点坐标 */
+      interpolation_para.endpoint_x = inc_x;
+      interpolation_para.endpoint_y = inc_y;
+      /* 所需脉冲数为X、Y坐标增量之和 */
+      interpolation_para.endpoint_pulse = inc_x + inc_y;
+      
+      /* 第一步进给的活动轴为X轴 */
+      interpolation_para.active_axis = x_axis;
+      /* 计算偏差 */
+      interpolation_para.deviation -= interpolation_para.endpoint_y;
+      
+      /* 设置速度 */
+      __HAL_TIM_SET_COMPARE(&TIM_StepperHandle, step_motor[x_axis].pul_channel, speed);
+      __HAL_TIM_SET_COMPARE(&TIM_StepperHandle, step_motor[y_axis].pul_channel, speed);
+      __HAL_TIM_SET_AUTORELOAD(&TIM_StepperHandle, speed * 2);
+      
+      /* 使能主输出 */
+      __HAL_TIM_MOE_ENABLE(&TIM_StepperHandle);
+      /* 开启X轴比较通道输出 */
+      TIM_CCxChannelCmd(MOTOR_PUL_TIM, step_motor[interpolation_para.active_axis].pul_channel, TIM_CCx_ENABLE);
+      HAL_TIM_Base_Start_IT(&TIM_StepperHandle);
+    }
+
+.. code-block:: c
+   :caption: bsp_linear_interpolation.c-定时器中断函数
+   :linenos:
+
+    /**
+      * @brief  定时器比较中断回调函数
+      * @param  htim：定时器句柄指针
+      * @note   无
+      * @retval 无
+      */
+    void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+    {
+      uint32_t last_axis = 0;
+      
+      /* 记录上一步的进给活动轴 */
+      last_axis = interpolation_para.active_axis;
+      
+      /* 根据上一步的偏差，判断的进给方向，并计算下一步的偏差 */
+      if(interpolation_para.deviation >= 0)
+      {
+        /* 偏差>0，在直线上方，进给X轴，计算偏差 */
+        interpolation_para.active_axis = x_axis;
+        interpolation_para.deviation -= interpolation_para.endpoint_y;
+      }
+      else
+      {
+        /* 偏差<0，在直线下方，进给Y轴，计算偏差 */
+        interpolation_para.active_axis = y_axis;
+        interpolation_para.deviation += interpolation_para.endpoint_x;
+      }
+      
+      /* 下一步的活动轴与上一步的不一致时，需要换轴 */
+      if(last_axis != interpolation_para.active_axis)
+      {
+        TIM_CCxChannelCmd(htim->Instance, step_motor[last_axis].pul_channel, TIM_CCx_DISABLE);
+        TIM_CCxChannelCmd(htim->Instance, step_motor[interpolation_para.active_axis].pul_channel, TIM_CCx_ENABLE);
+      }
+      
+      /* 进给总步数减1 */
+      interpolation_para.endpoint_pulse--;
+
+      /* 判断是否完成插补 */
+      if(interpolation_para.endpoint_pulse == 0)
+      {
+        /* 关闭定时器 */
+        TIM_CCxChannelCmd(htim->Instance, step_motor[last_axis].pul_channel, TIM_CCx_DISABLE);
+        TIM_CCxChannelCmd(htim->Instance, step_motor[interpolation_para.active_axis].pul_channel, TIM_CCx_DISABLE);
+        __HAL_TIM_MOE_DISABLE(htim);
+        HAL_TIM_Base_Stop_IT(htim);
+      }
+    }
+
+可以看到，上述代码与第一象限直线插补实验完全相同，这是因为直线所在象限的判断和进给方向的处理已经在Linear_Interpolation函数中完成，
+剩下的直接按照第一象限直线进行插补即可。
+
+(4) main函数
+
+.. code-block:: c
+   :caption: main.c-main函数
+   :linenos:
+
+    /**
+      * @brief  主函数
+      * @param  无
+      * @retval 无
+      */
+    int main(void) 
+    {
+      HAL_InitTick(0);
+      /* 初始化系统时钟为168MHz */
+      SystemClock_Config();
+      /*初始化USART 配置模式为 115200 8-N-1，中断接收*/
+      DEBUG_USART_Config();
+      printf("欢迎使用野火 电机开发板 步进电机 任意直线插补 例程\r\n");
+      /* LED初始化 */
+      LED_GPIO_Config();
+      /* 按键初始化 */
+      Key_GPIO_Config();
+      /*步进电机初始化*/
+      stepper_Init();
+      
+      Linear_Interpolation(6400, 6400, 500);
+      
+      while(1)
+      {
+        if(Key_Scan(KEY1_GPIO_PORT, KEY1_PIN) == KEY_ON)
+        {
+          Linear_Interpolation(6400, 4560, 1000);
+        }
+        if(Key_Scan(KEY2_GPIO_PORT, KEY2_PIN) == KEY_ON)
+        {
+          Linear_Interpolation(6400 * 6, 6400 * 6, 1000);
+        }
+        if(Key_Scan(KEY3_GPIO_PORT, KEY3_PIN) == KEY_ON)
+        {
+          Linear_Interpolation(12200, -45060, 1000);
+        }
+        if(Key_Scan(KEY4_GPIO_PORT, KEY4_PIN) == KEY_ON)
+        {
+          Linear_Interpolation(-65466, -89080, 1000);
+        }
+        if(Key_Scan(KEY5_GPIO_PORT, KEY5_PIN) == KEY_ON)
+        {
+          Linear_Interpolation(-39879, 44542, 1000);
+        }
+      }
+    }
+
+main函数中主要就是一些外设的初始化，包括步进电机的定时器初始化。然后在while循环中轮询按键，通过按键控制步进电机做不同象限的直线插补。
+需要注意的是，由于直线插补进给一次是一个步进脉冲，所以最后插补出来的直线长度跟步进电机的细分直接相关，在本实验中默认步进电机32细分，
+在main函数中输入的终点坐标参数中也对应步进电机的32细分。
+
+实验现象
+^^^^^^^^^^^^^^^^^^^^^^^^
+使用两轴丝杆滑台组成一个标准X-Y滑动平台，将步进电机连接好，下载程序到开发板后，按下开发板的按键，可以看到丝杆滑台上的滑块沿着程序设定的直线轨迹运动。
