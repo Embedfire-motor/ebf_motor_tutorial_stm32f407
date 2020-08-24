@@ -25,6 +25,8 @@ p点和n点没有电流到运放的5脚和6脚，可以得：
    :align: center
    :alt: 差分转单端输出
 
+R61与后面的电容组成RC滤波电路，R61上流过的电流很小，压降也小，可以忽略不计，Vo等于V\ :sub:`current_adc`\。
+
 将（1）式和（2）式整理可得：
 
 .. image:: ../media/有刷电机驱动运放公式3和4.png
@@ -54,7 +56,7 @@ p点和n点没有电流到运放的5脚和6脚，可以得：
 
 
 在下图中使用电压比较器LMV331SE实现10A过流保护电路，电流采样电路中V\ :sub:`i`\经过隔离运放和普通运放后变成V\ :sub:`current_adc`\输入到下图比较器的IN-，
-当IN-的电压超过IN+时比较器的OUT将输出低电平到与门。
+当IN-的电压超过IN+时比较器的OUT将输出低电平到锁存器中,锁存器对输入信号进行锁存并输出到与门。
 
 .. image:: ../media/voltage_comparator.png
    :align: center
@@ -98,8 +100,8 @@ p点和n点没有电流到运放的5脚和6脚，可以得：
 
 如下图所示是电源电压采样电路，在电源电压上并联R18和R19的串联电阻，R19两端的电压作为隔离运放的输入，
 再经过隔离运放放大8倍后差分输出，使用普通运放将差分输出转换成单端输出，连接到STM32的ADC采样通道。
-隔离运放的输入电压为Vi，则有:Vi/R19=POWER/(R18+R19)，带入电阻值可得：Vi=POWER/301，
-通过上一节中电流采样电流的计算方法可以计算得到POWER_ADC=POWER/301*8+0.5。
+隔离运放的输入电压为Vi，则有:Vi/R19=POWER/(R18+R59+R19)，带入电阻值可得：Vi=POWER/37，
+通过上一节中电流采样电流的计算方法可以计算得到POWER_ADC=POWER/37+1.24，不同的是，电压检测部分的隔离运放是没有放大的。
 
 .. image:: ../media/有刷电源电压采集.png
    :align: center
@@ -327,8 +329,8 @@ ADC_Mode_Config()函数
       ADC_Handle.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
       //使用软件触发
       ADC_Handle.Init.ExternalTrigConv = ADC_SOFTWARE_START;
-      //数据右对齐	
-      ADC_Handle.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+      //数据左对齐
+      ADC_Handle.Init.DataAlign = ADC_DATAALIGN_LEFT;
       //转换通道 2个
       ADC_Handle.Init.NbrOfConversion = 2;
       //使能连续转换请求
@@ -473,7 +475,7 @@ get_curr_val()函数
 
 在get_curr_val()中，我们对采集得到的原始数据累加的和(adc_mean_sum)除以累加次数(adc_mean_count)来求平均值，进行滤波操作，保证数据的稳定性。然后我们将以前的累加次数清零，为后面采集的数据做重新开始累加、滤波的准备。在实际情况中，每采集10次数据做一次滤波，得到的电流数据比较稳定，但是在程序设定时间内可能无法达到每采集10次做一次滤波操作，所以用户可以根据实际的实际需求来设定采集次数，采集间隔等。
 
-必须注意的是，在硬件设计中，并不是以0v为起始电压而是加了0.5v的偏置，具体看图 差分转单端输出结果_ 中的V\ :sub:`0.5`\。所以我们程序中，使用flag，在开发板上电后电机没有启动时，就先采集17次偏置电压数据(实测中采集17次后的偏执电压较为准确，这个次数和电路达到稳定状态的时间有关)，然后将偏置电压保存起来，这里使用static定义adc_offset。最后在每次获取电流值计算时，都会将偏置电压减去，保证数据是正确的。
+必须注意的是，在硬件设计中，并不是以0v为起始电压而是加了1.24v的偏置，具体看图 差分转单端输出结果_ 中的V\ :sub:`1.24`\。所以我们程序中，使用flag，在开发板上电后电机没有启动时，就先采集17次偏置电压数据(实测中采集17次后的偏执电压较为准确，这个次数和电路达到稳定状态的时间有关)，然后将偏置电压保存起来，这里使用static定义adc_offset。最后在每次获取电流值计算时，都会将偏置电压减去，保证数据是正确的。
 
 在得到有效的电流转换电压的采集值后，我们对该电压值进行转换操作，将其转换回电流，调用GET_ADC_CURR_VAL。
 
@@ -483,7 +485,7 @@ get_curr_val()函数
    :linenos:
 
    #define VREF                            3.3f     // 参考电压，理论上是3.3，可通过实际测量得3.258
-   #define GET_ADC_VDC_VAL(val)            ((float)val/(float)4096.0*VREF)          // 得到电压值
+   #define GET_ADC_VDC_VAL(val)            ((float)val/(float)65536.0*VREF)          // 得到电压值
    #define GET_ADC_CURR_VAL(val)           (((float)val)/(float)8.0/(float)0.02*(float)1000.0)          // 得到电流值，电压放大8倍，0.02是采样电阻，单位mA。
 
 只是简单宏定义即可实现。
