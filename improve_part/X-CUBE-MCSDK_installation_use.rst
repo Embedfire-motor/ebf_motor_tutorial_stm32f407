@@ -128,7 +128,7 @@ ST Motor Control Workbench 的使用
       - 1000线
 
 在我们知道电机参数后我们就可以使用Workbench来配置生成代码来控制电机了，
-以下我们使用BLDC速度控制使用霍尔传感器为例来说一下Workbench的使用方法，
+以下我们使用BLDC速度控制使用霍尔传感器（HALL）为例来说一下Workbench的使用方法，
 以下只是简单介绍Workbench的使用，并不会介绍FOC相关的原理，
 这里的目的是使用Workbench配置后生成的代码让电机跑起来，不过生成的代码并不能直接使用，
 还需要做简单的修改，所以我们只讲解需要修改部分的代码。
@@ -677,3 +677,61 @@ User Labe 项填写 SD 。修改完成后保存关闭窗口，这里不使用STM
    :align: center
    :alt: 欠压故障被排除
 
+无感模式
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+上面我们介绍了霍尔感器获取速度的配置方法，现在我们介绍不使用传感器的配置方法，
+关于电机和驱动板的参数配置与使用霍尔传感器模式一样，如下图所示，点击 Speed Sensing
+后主传感器选择 Sensor-less (Observer+PLL) 。
+
+.. image:: ../media/st_foc/Sensor-less_(Observer+PLL).png
+   :align: center
+   :alt: 无感模式速度传感器
+
+无感模式还需要配置启动参数，点击 Fimware Drive Management 后，选择 Start-up parameters，
+配置界面如下图所示。无感模式需要开环跑来后在切换到 FOC 模式控制，在下面参数中可以配置开环跑的相关参数，
+例如，开环对齐时持续时间，对齐电角度，速度上升时间，最终速度值等。
+
+.. image:: ../media/st_foc/Drive_Management-Start-up_parameters_Sensor-less.png
+   :align: center
+   :alt: 无感模式启动参数
+
+配置完所有参数后，就可以生成代码了，不过生成的代码还是不能直接运行，需要做同霍尔传感器模式一样的修改：
+
+- 驱动需要一个引脚来控制 MOS 驱动芯片的开关，所以需要增加一个引脚来控制 SD 引脚；
+- 由于我们使用了电压隔离芯片，还使用加法电路，所以生成的代码并不能完成我们需要的功能，
+  需要重新写电压获取代码和过压、欠压检测代码；
+- 生成的温度获取代码也并不能直接用，需要重新实现。
+
+关于以上的更改方法与霍尔传感器模式完全一样。
+
+编码器模式
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+下面介绍使用编码器模式获取速度，关于电机和驱动板的参数配置与使用霍尔传感器模式基本一样，
+如下图所示，点击 Speed Sensing 后主传感器选择 Quadrature encoder 。
+
+.. image:: ../media/st_foc/Speed_Position_Feedback_Management-main-Quadrature_encoder.png
+   :align: center
+   :alt: 编码器模式
+
+在 Motor-Parameters 感器勾选 Quadrature encoder ，编码器为1000线，
+
+.. image:: ../media/st_foc/Motor_Parameters-sensors-Quadrature_encoder.png
+   :align: center
+   :alt: 编码器配置
+
+编码器模式同样需要配置启动参数，点击 Fimware Drive Management 后，选择 Start-up parameters，
+配置界面如下图所示。可以配置对齐时间、对齐角度和电流。
+
+.. image:: ../media/st_foc/Drive_Management-Start-up_parameters_Quadrature-encoder.png
+   :align: center
+   :alt: 编码器启动参数
+
+点击 Digital I/O 配置数字输出输入相关引脚，在这里需要选择编码器使用的定时器和引脚。
+
+.. image:: ../media/st_foc/Control_Stage-Digital_IO-Quadrature-encoder.png
+   :align: center
+   :alt: 数字输出输入 I/O 配置
+
+配置完所有参数后，就可以生成代码了，生成代码同样需要做跟霍尔模式一样的修改。
