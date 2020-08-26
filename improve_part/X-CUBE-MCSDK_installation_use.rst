@@ -412,18 +412,21 @@ Start/Stop Button 选择使能，Serial Communication 中使能串口，使用 B
 
 **初始化 SD 控制脚**
 
-在 main.h 中添加如下图所示红框中的代码段，增加引脚宏定义。
+初始化 SD 引脚有两种方法，一种是我们自己写代码来初始化，还有一种是我们可以使用STM32CubeMX打开
+\\improve_part\\BLDC_FOC_V5.44_Hall_speed_control\\BLDC_control\\BLDC_control.ioc，
+通过STM32CubeMX来初始化SD引脚，如下图所示，将PG12配置为GPIO_Output，并且将默认的电平输出设置为高电平，
+User Labe 项填写 SD 。修改完成后保存关闭窗口，这里不使用STM32CubeMX来生成代码，需要回到Workbench，
+使用Workbench来更新代码（**注意，不是生成**）。
 
-.. image:: ../media/st_foc/main.h_add_pin_define.png
+.. image:: ../media/st_foc/sd_pin_config.png
    :align: center
-   :alt: 增加引脚宏定义
+   :alt: STM32CubeMX修改.ioc文件
 
-如下图所示，我们在 main.c 的3个地方增加相应的 SD 引脚初始化代码，并且在初始化完成后输出高电平，
-即，默认都打开 MOS 管输出。具体代码请参考配套工程。
+如下图所示，点击 UPDATE 即可更新代码。
 
-.. image:: ../media/st_foc/mian.c_add_sd_fun.png
+.. image:: ../media/st_foc/Project_Code_Update.png
    :align: center
-   :alt: 增加引脚初始化
+   :alt: STM32CubeMX修改.ioc文件
 
 **修改电压传感器**
 
@@ -539,21 +542,21 @@ Start/Stop Button 选择使能，Serial Communication 中使能串口，使用 B
    */
    uint16_t NTC_SetFaultState( NTC_Handle_t * pHandle )
    {
-   uint16_t hFault;
+      uint16_t hFault;
 
-   if ( pHandle->hAvTemp_d > YH_OV_TEMPERATURE_THRESHOLD_d )
-   {
-      hFault = MC_OVER_TEMP;
-   }
-   else if ( pHandle->hAvTemp_d < YH_OV_TEMPERATURE_HYSTERESIS_d )
-   {
-      hFault = MC_NO_ERROR;
-   }
-   else
-   {
-      hFault = pHandle->hFaultState;
-   }
-   return hFault;
+      if ( pHandle->hAvTemp_d > YH_OV_TEMPERATURE_THRESHOLD_d )
+      {
+         hFault = MC_OVER_TEMP;
+      }
+      else if ( pHandle->hAvTemp_d < YH_OV_TEMPERATURE_HYSTERESIS_d )
+      {
+         hFault = MC_NO_ERROR;
+      }
+      else
+      {
+         hFault = pHandle->hFaultState;
+      }
+      return hFault;
    }
 
    /* Functions ---------------------------------------------------- */
@@ -567,31 +570,31 @@ Start/Stop Button 选择使能，Serial Communication 中使能串口，使用 B
    */
    uint16_t NTC_CalcAvTemp( NTC_Handle_t * pHandle )
    {
-   uint32_t wtemp;
-   uint16_t hAux;
+      uint32_t wtemp;
+      uint16_t hAux;
 
-   if ( pHandle->bSensorType == REAL_SENSOR )
-   {
-      hAux = RCM_ExecRegularConv(pHandle->convHandle);
-
-      if ( hAux != 0xFFFFu )
+      if ( pHandle->bSensorType == REAL_SENSOR )
       {
-         wtemp =  ( uint32_t )( pHandle->hLowPassFilterBW ) - 1u;
-         wtemp *= ( uint32_t ) ( pHandle->hAvTemp_d );
-         wtemp += hAux;
-         wtemp /= ( uint32_t )( pHandle->hLowPassFilterBW );
+         hAux = RCM_ExecRegularConv(pHandle->convHandle);
 
-         pHandle->hAvTemp_d = ( uint16_t ) wtemp;
+         if ( hAux != 0xFFFFu )
+         {
+            wtemp =  ( uint32_t )( pHandle->hLowPassFilterBW ) - 1u;
+            wtemp *= ( uint32_t ) ( pHandle->hAvTemp_d );
+            wtemp += hAux;
+            wtemp /= ( uint32_t )( pHandle->hLowPassFilterBW );
+
+            pHandle->hAvTemp_d = ( uint16_t ) wtemp;
+         }
+
+         pHandle->hFaultState = NTC_SetFaultState( pHandle );
+      }
+      else  /* case VIRTUAL_SENSOR */
+      {
+         pHandle->hFaultState = MC_NO_ERROR;
       }
 
-      pHandle->hFaultState = NTC_SetFaultState( pHandle );
-   }
-   else  /* case VIRTUAL_SENSOR */
-   {
-      pHandle->hFaultState = MC_NO_ERROR;
-   }
-
-   return ( pHandle->hFaultState );
+      return ( pHandle->hFaultState );
    }
 
 在yh_ntc_temperature_sensor.c中重新实现NTC_GetAvTemp_C函数如下：
