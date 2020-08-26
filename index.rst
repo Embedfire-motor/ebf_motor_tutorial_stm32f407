@@ -66,7 +66,6 @@
    improve_part/step_motor_linear_interpolation
    improve_part/step_motor_circular_interpolation
    improve_part/BLDC_speed_loop_control
-   improve_part/synchronize_motor_PMSM_control
    improve_part/ST-FOC-MC_SDK5x-overview
    improve_part/X-CUBE-MCSDK_installation_use
 

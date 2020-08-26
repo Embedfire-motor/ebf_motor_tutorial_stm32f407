@@ -735,3 +735,28 @@ User Labe 项填写 SD 。修改完成后保存关闭窗口，这里不使用STM
    :alt: 数字输出输入 I/O 配置
 
 配置完所有参数后，就可以生成代码了，生成代码同样需要做跟霍尔模式一样的修改。
+
+编码器模式-位置控制
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+在使用 PMSM 电机中使用编码器时还可以选择位置控制模式，如下图所示。
+
+.. image:: ../media/st_foc/Drive_Management-Drive_Settings.png
+   :align: center
+   :alt: 数字输出输入 I/O 配置
+
+位置控制模式和速度控制模式在 Workbench 的配置中只有这个界面的配置不一样，
+在这里选择位置控制模式后，通常还需要在左下角的位置调节器中修改 PID 的参数才能正常工作。
+
+配置完所有参数后，就可以生成代码了，生成代码后再按霍尔模式修改好代码，
+这里还需要在修改代码才能进行测试，因为 Workbench 里面的监视器不支持位置控制，
+所以我们需自己写代码来控制位置。在mian.c 的 main 函数中 while(1) 里面增加如下图红框中的代码。
+
+.. image:: ../media/st_foc/Add_position_control_code.png
+   :align: center
+   :alt: 增加位置控制代码
+
+这里通过 MCSDK 中提供的 MC_ProgramPositionCommandMotor1() API 来设置电机的位置，
+函数的具体用法请参考函数源码前的注释。
+
+现在我们编译下载后按KEY2启动可以看到电机每隔两秒转一次，一次转90°。
