@@ -460,7 +460,8 @@
 开启定时器中断后，后续的处理都直接放到中断回调函数中进行。
 
 - 第12行：记录上一步进给的活动轴；
-- 第15~30行：这一部分用来计算上一步加工动点的坐标，先判断活动轴是X还是Y，如果是X轴就继续判断上一步是正转还是反转，Y轴同理；
+- 第15~30行：这一部分用来计算上一步加工动点的坐标，先判断活动轴是X还是Y，如果是X轴就继续判断上一步是正转还是反转，
+  正转+1，反转-1，Y轴同理；
 - 第34~44行：这一部分代码根据上一步的动点坐标和偏差值计算新的偏差值；
 - 第48~51行：比较上一步进给的轴和下一步进给的轴是否一致，如果不一致，需要切换PWM输出的通道；
 - 第55行：完成一次插补，总的进给步数就减一，这里使用了总步长法进行终点判别；
@@ -538,11 +539,41 @@ main函数中主要就是一些外设的初始化，包括步进电机的定时�
 根据他们各自的偏差判别、偏差值计算公式和XY坐标进给方向，可以归纳为2组，这里由于篇幅限制，不展开推导每种线形的偏差计算公式，
 而是分别用两张图表来说明，对此感兴趣的可以自己尝试推导。
 
-首先第一组是NR1、NR3、SR2、SR4。这一组的共同点如下：
+首先第一组是NR1、NR3、SR2、SR4，这一组的共同点如下：
 
-- 当F\ :sub:`i`\ ≥ 0时，动点P在圆弧上；
-- 当F\ :sub:`i`\ > 0时，则动点P在圆弧外侧；
-- 当F\ :sub:`i`\ < 0时，则动点P在圆弧内侧。
+- 当F\ :sub:`i`\ ≥ 0时，X轴进给，NR1、SR4走-X方向，SR2、NR3走+X方向；
+- 当F\ :sub:`i`\ < 0时，Y轴进给，NR1、SR2走+Y方向，NR3、SR4走-Y方向。
+
+设都从各自的圆弧起点开始插补，则第一组的圆弧插补方向在一张坐标系图中可得：
+
+.. image:: ../media/NR1圆弧插补坐标图.png
+   :align: center
+   :alt: NR1、NR3、SR2、SR4圆弧插补方向图
+
+第一组的偏差计算公式与第一象限逆时针圆弧插补相同，只是X、Y坐标值使用绝对值参与计算。
+将这一组的偏差计算公式和进给方向总结为一张表格，如下表所示。
+
+.. image:: ../media/NR1圆弧插补偏差公式表.png
+   :align: center
+   :alt: NR1、NR3、SR2、SR4圆弧插补偏差公式
+
+然后第二组是SR1、SR3、NR2、NR4，这一组的共同点如下：
+
+- 当F\ :sub:`i`\ ≥ 0时，Y轴进给，SR1、NR2走-Y方向，SR3、NR4走+Y方向；
+- 当F\ :sub:`i`\ < 0时，X轴进给，SR1、NR4走+X方向，NR2、SR3走-X方向。
+
+同样，第二组的圆弧插补方向在坐标系图中表示为：
+
+.. image:: ../media/SR1圆弧插补坐标图.png
+   :align: center
+   :alt: SR1、SR3、NR2、NR4圆弧插补方向图
+
+第二组的偏差计算公式与第二组相反，并且X、Y坐标值使用绝对值参与计算。
+第二组的偏差计算公式和进给方向总结为一张表格，如下表所示。
+
+.. image:: ../media/SR1圆弧插补偏差公式表.png
+   :align: center
+   :alt: SR1、SR3、NR2、NR4圆弧插补偏差公式
 
 任意象限双向圆弧插补实验
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -568,8 +599,492 @@ main函数中主要就是一些外设的初始化，包括步进电机的定时�
 
 软件分析
 ^^^^^^^^^^^^^^^^^^^^^^^^
-1. 宏定义
+1. 任意象限双向圆弧插补相关参数
 
+.. code-block:: c
+   :caption: bsp_circular_interpolation.h-圆弧插补相关参数
+   :linenos:
+
+    /* 坐标轴枚举 */
+    typedef enum{
+      x_axis = 0U,
+      y_axis
+    }Axis_TypeDef;
+
+    /* 坐标轴象限枚举 */
+    typedef enum{
+      quadrant_1st = 0U,
+      quadrant_2nd,
+      quadrant_3rd,
+      quadrant_4th
+    }Quadrant_TypeDef;
+
+    /* 圆弧插补参数结构体 */
+    typedef struct{
+      __IO int32_t startpoint[2];        //起点坐标X、Y
+      __IO int32_t endpoint_x;           //终点坐标X
+      __IO int32_t endpoint_y;           //终点坐标Y
+      __IO uint32_t endpoint_pulse;      //到达终点位置需要的脉冲数
+      __IO uint32_t active_axis;         //当前运动的轴
+      __IO int32_t deviation;            //偏差参数F
+      __IO int8_t devi_sign[2];          //偏差方程的运算符号，正负
+      __IO uint8_t motionstatus : 1;     //插补运动状态
+      __IO uint8_t dir_x : 1;            //X轴运动方向
+      __IO uint8_t dir_y : 1;            //Y轴运动方向
+      __IO uint8_t dir_interpo : 1;      //插补整体运动方向
+      __IO uint8_t crood_pos : 2;        //起点坐标所在的象限
+    }CircularInterpolation_TypeDef;
+
+本实验的步进电机相关宏定义、引脚和定时器初始化与之前讲过的实验完全相同，所以在此不再赘述，重点讲解任意象限圆弧插补的实现过程。
+
+在上述代码中分别定义了坐标轴和坐标象限的枚举，和一个圆弧插补相关参数的结构体。CircularInterpolation_TypeDef结构体相比第一象限逆圆插补，修改和增加了一些成员变量，
+其中startpoint[2]数组变量用来存放起点的坐标(x,y)，devi_sign[2]数组中的两个元素分别保存X轴偏差方程和Y轴偏差方程的运算符号，为了判断圆弧插补的方向和所在象限，
+增加了dir_interpo和crood_pos。
+
+2. 任意象限双向圆弧插补
+
+.. code-block:: c
+   :caption: bsp_circular_interpolation.c-判断插补进给方向
+   :linenos:
+
+    /**
+      * @brief  设置进给方向
+      * @param  coord_x
+      * @param  coord_y
+      * @retval 无
+      */
+    static void Set_Feed_DIR(int32_t coord_x, int32_t coord_y, uint8_t dir)
+    {
+      /* 记录插补运动方向 */
+      circular_para.dir_interpo = dir;
+      
+      if(dir == CW)
+      {
+        if(coord_x > 0)/* x正半轴 */
+        {
+          if(coord_y > 0)/* 第一象限 */
+          {
+            circular_para.crood_pos = quadrant_1st;
+            circular_para.dir_x = CW;
+            circular_para.dir_y = CCW;
+            circular_para.devi_sign[x_axis] = 1;
+            circular_para.devi_sign[y_axis] = -1;
+            MOTOR_DIR(step_motor[x_axis].dir_port, step_motor[x_axis].dir_pin, CW);
+            MOTOR_DIR(step_motor[y_axis].dir_port, step_motor[y_axis].dir_pin, CCW);
+          }
+          else/* 第四象限 */
+          {
+            circular_para.crood_pos = quadrant_4th;
+            circular_para.dir_x = CCW;
+            circular_para.dir_y = CCW;
+            circular_para.devi_sign[x_axis] = -1;
+            circular_para.devi_sign[y_axis] = -1;
+            MOTOR_DIR(step_motor[x_axis].dir_port, step_motor[x_axis].dir_pin, CCW);
+            MOTOR_DIR(step_motor[y_axis].dir_port, step_motor[y_axis].dir_pin, CCW);
+          }
+        }
+        else if(coord_x < 0)/* x负半轴 */
+        {
+          if(coord_y >= 0)/* 第二象限 */
+          {
+            circular_para.crood_pos = quadrant_2nd;
+            circular_para.dir_x = CW;
+            circular_para.dir_y = CW;
+            circular_para.devi_sign[x_axis] = 1;
+            circular_para.devi_sign[y_axis] = 1;
+            MOTOR_DIR(step_motor[x_axis].dir_port, step_motor[x_axis].dir_pin, CW);
+            MOTOR_DIR(step_motor[y_axis].dir_port, step_motor[y_axis].dir_pin, CW);
+          }
+          else/* 第三象限 */
+          {
+            circular_para.crood_pos = quadrant_3rd;
+            circular_para.dir_x = CCW;
+            circular_para.dir_y = CW;
+            circular_para.devi_sign[x_axis] = -1;
+            circular_para.devi_sign[y_axis] = 1;
+            MOTOR_DIR(step_motor[x_axis].dir_port, step_motor[x_axis].dir_pin, CCW);
+            MOTOR_DIR(step_motor[y_axis].dir_port, step_motor[y_axis].dir_pin, CW);
+          }
+        }
+        else if(coord_x == 0)/* x=0，当前点在Y轴上 */
+        {
+          if(coord_y > 0)/* 第一象限 */
+          {
+            circular_para.crood_pos = quadrant_1st;
+            circular_para.dir_x = CW;
+            circular_para.dir_y = CCW;
+            circular_para.devi_sign[x_axis] = 1;
+            circular_para.devi_sign[y_axis] = -1;
+            MOTOR_DIR(step_motor[x_axis].dir_port, step_motor[x_axis].dir_pin, CW);
+            MOTOR_DIR(step_motor[y_axis].dir_port, step_motor[y_axis].dir_pin, CCW);
+          }
+          else if(coord_y < 0)/* 第三象限 */
+          {
+            circular_para.crood_pos = quadrant_3rd;
+            circular_para.dir_x = CCW;
+            circular_para.dir_y = CW;
+            circular_para.devi_sign[x_axis] = -1;
+            circular_para.devi_sign[y_axis] = 1;
+            MOTOR_DIR(step_motor[x_axis].dir_port, step_motor[x_axis].dir_pin, CCW);
+            MOTOR_DIR(step_motor[y_axis].dir_port, step_motor[y_axis].dir_pin, CW);
+          }
+        }
+      }
+      else
+      {
+        if(coord_x > 0)/* x正半轴 */
+        {
+          if(coord_y >= 0)/* 第一象限 */
+          {
+            circular_para.crood_pos = quadrant_1st;
+            circular_para.dir_x = CCW;
+            circular_para.dir_y = CW;
+            circular_para.devi_sign[x_axis] = -1;
+            circular_para.devi_sign[y_axis] = 1;
+            MOTOR_DIR(step_motor[x_axis].dir_port, step_motor[x_axis].dir_pin, CCW);
+            MOTOR_DIR(step_motor[y_axis].dir_port, step_motor[y_axis].dir_pin, CW);
+          }
+          else/* 第四象限 */
+          {
+            circular_para.crood_pos = quadrant_4th;
+            circular_para.dir_x = CW;
+            circular_para.dir_y = CW;
+            circular_para.devi_sign[x_axis] = 1;
+            circular_para.devi_sign[y_axis] = 1;
+            MOTOR_DIR(step_motor[x_axis].dir_port, step_motor[x_axis].dir_pin, CW);
+            MOTOR_DIR(step_motor[y_axis].dir_port, step_motor[y_axis].dir_pin, CW);
+          }
+        }
+        else if(coord_x < 0)/* x负半轴 */
+        {
+          if(coord_y > 0)/* 第二象限 */
+          {
+            circular_para.crood_pos = quadrant_2nd;
+            circular_para.dir_x = CCW;
+            circular_para.dir_y = CCW;
+            circular_para.devi_sign[x_axis] = -1;
+            circular_para.devi_sign[y_axis] = -1;
+            MOTOR_DIR(step_motor[x_axis].dir_port, step_motor[x_axis].dir_pin, CCW);
+            MOTOR_DIR(step_motor[y_axis].dir_port, step_motor[y_axis].dir_pin, CCW);
+          }
+          else/* 第三象限 */
+          {
+            circular_para.crood_pos = quadrant_3rd;
+            circular_para.dir_x = CW;
+            circular_para.dir_y = CCW;
+            circular_para.devi_sign[x_axis] = 1;
+            circular_para.devi_sign[y_axis] = -1;
+            MOTOR_DIR(step_motor[x_axis].dir_port, step_motor[x_axis].dir_pin, CW);
+            MOTOR_DIR(step_motor[y_axis].dir_port, step_motor[y_axis].dir_pin, CCW);
+          }
+        }
+        else if(coord_x == 0)/* x=0，当前点在Y轴上 */
+        {
+          if(coord_y > 0)/* 第二象限 */
+          {
+            circular_para.crood_pos = quadrant_2nd;
+            circular_para.dir_x = CCW;
+            circular_para.dir_y = CCW;
+            circular_para.devi_sign[x_axis] = -1;
+            circular_para.devi_sign[y_axis] = -1;
+            MOTOR_DIR(step_motor[x_axis].dir_port, step_motor[x_axis].dir_pin, CCW);
+            MOTOR_DIR(step_motor[y_axis].dir_port, step_motor[y_axis].dir_pin, CCW);
+          }
+          else if(coord_y < 0)/* 第四象限 */
+          {
+            circular_para.crood_pos = quadrant_4th;
+            circular_para.dir_x = CW;
+            circular_para.dir_y = CW;
+            circular_para.devi_sign[x_axis] = 1;
+            circular_para.devi_sign[y_axis] = 1;
+            MOTOR_DIR(step_motor[x_axis].dir_port, step_motor[x_axis].dir_pin, CW);
+            MOTOR_DIR(step_motor[y_axis].dir_port, step_motor[y_axis].dir_pin, CW);
+          }
+        }
+      }
+    }
+
+上述代码根据传入的起点坐标和插补方向，判断起点坐标所在的象限，并设置X轴和Y轴的运动方向以及偏差计算公式的符号。
+
+- 第12~80行：插补方向为顺时针时的参数判断和处理；
+- 第84~152行：插补方向为逆时针时的参数判断和处理。
+
+.. code-block:: c
+   :caption: bsp_circular_interpolation.c-任意象限顺圆插补运动函数
+   :linenos:
+
+    /**
+      * @brief  任意象限顺圆插补运动
+      * @param  start_x：圆弧起点坐标X
+      * @param  start_y：圆弧起点坐标Y
+      * @param  stop_x：圆弧终点坐标X
+      * @param  stop_y：圆弧终点坐标Y
+      * @param  speed：进给速度
+      * @param  dir：进给方向
+      * @retval 无
+      */
+    void Circular_InterPolation(int32_t start_x, int32_t start_y, int32_t stop_x, int32_t stop_y, uint16_t speed, uint8_t dir)
+    {
+      /* 判断当前是否正在做插补运动 */
+      if(circular_para.motionstatus != 0)
+        return;
+      
+      /* 检查起点、终点坐标是否在同一个圆上 */
+      if(((start_x * start_x) + (start_y * start_y)) != ((stop_x * stop_x) + (stop_y * stop_y)))
+        return;
+      
+      /* 偏差清零 */
+      circular_para.deviation = 0;
+      
+      /* 起点坐标 */
+      circular_para.startpoint[x_axis] = start_x;
+      circular_para.startpoint[y_axis] = start_y;
+      /* 终点坐标 */
+      circular_para.endpoint_x = stop_x;
+      circular_para.endpoint_y = stop_y;
+      /* 所需脉冲数是从起点到终点的脉冲数之和 */
+      circular_para.endpoint_pulse = abs(stop_x - start_x) + abs(stop_y - start_y);
+      
+      /* 根据坐标确定插补方向和X、Y运动方向 */
+      Set_Feed_DIR(circular_para.startpoint[x_axis], circular_para.startpoint[y_axis], dir);
+      
+      /* 起点坐标x=0，说明起点在y轴上，直接向x轴进给可减小误差 */
+      if(circular_para.startpoint[x_axis] == 0)
+      {
+        /* 偏差方程：F = F ± 2 * x + 1*/
+        circular_para.active_axis = x_axis;
+        circular_para.deviation += 2 * circular_para.devi_sign[x_axis]
+                                     * circular_para.startpoint[x_axis] + 1;
+      }
+      else
+      {
+        /* 偏差方程：F = F ± 2 * y + 1*/
+        circular_para.active_axis = y_axis;
+        circular_para.deviation += 2 * circular_para.devi_sign[y_axis]
+                                     * circular_para.startpoint[y_axis] + 1;
+      }
+      
+      /* 设置速度 */
+      __HAL_TIM_SET_COMPARE(&TIM_StepperHandle, step_motor[x_axis].pul_channel, speed);
+      __HAL_TIM_SET_COMPARE(&TIM_StepperHandle, step_motor[y_axis].pul_channel, speed);
+      __HAL_TIM_SET_AUTORELOAD(&TIM_StepperHandle, speed * 2);
+      
+      /* 使能主输出 */
+      __HAL_TIM_MOE_ENABLE(&TIM_StepperHandle);
+      /* 开启活动轴比较通道输出 */
+      TIM_CCxChannelCmd(MOTOR_PUL_TIM, step_motor[circular_para.active_axis].pul_channel, TIM_CCx_ENABLE);
+      HAL_TIM_Base_Start_IT(&TIM_StepperHandle);
+      
+      circular_para.motionstatus = 1;
+    }
+
+上述代码用来开启圆弧插补运动，并在开始运动前，对起点终点坐标、XY轴的进给方向和进给速度进行处理。
+
+- 第14行：判断是否还有插补运动正在执行；
+- 第17行：判断传入的起点和终点坐标是否在同一个圆上；
+- 第22行：清零偏差；
+- 第25~31行：记录起点终点坐标，计算并记录总共需要的插补步数；
+- 第34行：调用Set_Feed_DIR函数，根据起点坐标设置X、Y轴的运动方向；
+- 第37~50行：判断起点坐标是否在X轴上，如果在X轴则第一步向Y轴进给，并计算对应的偏差值，如果不在X轴则第一步向X轴进给，
+  进给的运动方向和偏差计算公式的符号由第34行得出；
+- 第53~55行：设置圆弧插补的进给速度；
+- 第57~63行：开启定时器输出，开始执行插补运动。
+
+.. code-block:: c
+   :caption: bsp_circular_interpolation.c-定时器比较中断回调函数
+   :linenos:
+
+       /**
+      * @brief  定时器比较中断回调函数
+      * @param  htim：定时器句柄指针
+      * @note   无
+      * @retval 无
+      */
+    void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+    {
+      uint32_t last_axis = 0;
+      
+      /* 记录上一步的进给活动轴 */
+      last_axis = circular_para.active_axis;
+      
+      /* 根据进给方向刷新坐标 */
+      switch(last_axis)
+      {
+        case x_axis:
+          switch(circular_para.dir_x)
+          {
+            case CCW: circular_para.startpoint[x_axis]--; break;
+            case CW:  circular_para.startpoint[x_axis]++; break;
+          }
+          break;
+        case y_axis:
+          switch(circular_para.dir_y)
+          {
+            case CCW: circular_para.startpoint[y_axis]--; break;
+            case CW:  circular_para.startpoint[y_axis]++; break;
+          }
+          break;
+      }
+      
+      /* 根据上一次进给的偏差，判断新的进给活动轴 */
+      if(circular_para.deviation >= 0)
+      {
+        switch(circular_para.dir_interpo)
+        {
+          case CW:/* 顺时针 */
+            switch(circular_para.crood_pos)
+            {
+              case quadrant_1st:
+              case quadrant_3rd:
+                circular_para.active_axis = y_axis;
+                break;
+              case quadrant_2nd:
+              case quadrant_4th:
+                circular_para.active_axis = x_axis;
+                break;
+            }
+            break;
+          case CCW:/* 逆时针 */
+            switch(circular_para.crood_pos)
+            {
+              case quadrant_1st:
+              case quadrant_3rd:
+                circular_para.active_axis = x_axis;
+                break;
+              case quadrant_2nd:
+              case quadrant_4th:
+                circular_para.active_axis = y_axis;
+                break;
+            }
+            break;
+        }
+      }
+      else /* 偏差小于0，向圆外进给 */
+      {
+        switch(circular_para.dir_interpo)
+        {
+          case CW:/* 顺时针 */
+            switch(circular_para.crood_pos)
+            {
+              case quadrant_1st:
+              case quadrant_3rd:
+                circular_para.active_axis = x_axis;
+                break;
+              case quadrant_2nd:
+              case quadrant_4th:
+                circular_para.active_axis = y_axis;
+                break;
+            }
+            break;
+          case CCW:/* 逆时针 */
+            switch(circular_para.crood_pos)
+            {
+              case quadrant_1st:
+              case quadrant_3rd:
+                circular_para.active_axis = y_axis;
+                break;
+              case quadrant_2nd:
+              case quadrant_4th:
+                circular_para.active_axis = x_axis;
+                break;
+            }
+            break;
+        }
+      }
+      /* 根据插补运动方向和进给方向计算出新的偏差 */
+      circular_para.deviation += 2 * circular_para.devi_sign[circular_para.active_axis]
+                                   * circular_para.startpoint[circular_para.active_axis] + 1;
+      
+      /* 下一步的活动轴与上一步的不一致时，需要换轴 */
+      if(last_axis != circular_para.active_axis)
+      {
+        TIM_CCxChannelCmd(htim->Instance, step_motor[last_axis].pul_channel, TIM_CCx_DISABLE);
+        TIM_CCxChannelCmd(htim->Instance, step_motor[circular_para.active_axis].pul_channel, TIM_CCx_ENABLE);
+      }
+      
+      /* 进给总步数减1 */
+      circular_para.endpoint_pulse--;
+      
+      /* 判断是否完成插补 */
+      if(circular_para.endpoint_pulse == 0)
+      {
+        /* 关闭定时器 */
+        TIM_CCxChannelCmd(htim->Instance, step_motor[last_axis].pul_channel, TIM_CCx_DISABLE);
+        TIM_CCxChannelCmd(htim->Instance, step_motor[circular_para.active_axis].pul_channel, TIM_CCx_DISABLE);
+        __HAL_TIM_MOE_DISABLE(htim);
+        HAL_TIM_Base_Stop_IT(htim);
+        circular_para.motionstatus = 0;
+      }
+    }
+
+开启定时器中断后，后续的处理都直接放到中断回调函数中进行。
+
+- 第12行：记录上一步进给的活动轴；
+- 第15~30行：这一部分用来计算上一步加工动点的坐标，先判断活动轴是X还是Y，如果是X轴就继续判断上一步是正转还是反转，
+  正转+1，反转-1，Y轴同理；
+- 第34~95行：这一部分代码根据上一步的插补偏差大小、插补方向和动点所在象限，得出正在活动的轴；
+- 第99~100行：这一行实现了任意象限圆弧插补的偏差计算公式，与上一节总结出的任意象限圆弧插补偏差计算公式几乎相同，只是多了对公式中正负号的控制，
+  devi_sign变量便是公式中的正负号，由Set_Feed_DIR函数得出，这样可以仅用一行代码实现任意象限圆弧插补的所有公式；
+- 第103~106行：比较上一步进给的轴和下一步进给的轴是否一致，如果不一致，需要切换PWM输出的通道；
+- 第110行：完成一次插补，总的进给步数就减一，这里使用了总步长法进行终点判别；
+- 第113~120行：如果总的进给步数为0，则表示插补走到终点，关闭定时器结束插补。
+
+3. 主函数
+
+.. code-block:: c
+   :caption: main.c-main函数
+   :linenos:
+
+    /**
+      * @brief  主函数
+      * @param  无
+      * @retval 无
+      */
+    int main(void) 
+    {
+      HAL_InitTick(0);
+      /* 初始化系统时钟为168MHz */
+      SystemClock_Config();
+      /*初始化USART 配置模式为 1156400 8-N-1，中断接收*/
+      DEBUG_USART_Config();
+      printf("欢迎使用野火 电机开发板 步进电机 任意象限圆弧插补 例程\r\n");
+      /* LED初始化 */
+      LED_GPIO_Config();
+      /* 按键初始化 */
+      Key_GPIO_Config();
+      /*步进电机初始化*/
+      stepper_Init();
+
+      while(1)
+      {
+        /* 顺时针圆弧 */
+        if(Key_Scan(KEY2_GPIO_PORT, KEY2_PIN) == KEY_ON)
+        {
+          Circular_InterPolation(6400 * 10, 0, 0, -6400 * 10, 1000, CW);
+          while(circular_para.motionstatus);
+          Circular_InterPolation(0, -6400 * 10, -6400 * 10, 0, 1000, CW);
+          while(circular_para.motionstatus);
+          Circular_InterPolation(-6400 * 10, 0, 0, 6400 * 10, 1000, CW);
+          while(circular_para.motionstatus);
+          Circular_InterPolation(0, 6400 * 10, 6400 * 10, 0, 1000, CW);
+        }
+        /* 逆时针圆弧 */
+        if(Key_Scan(KEY3_GPIO_PORT, KEY3_PIN) == KEY_ON)
+        {
+          Circular_InterPolation(6400 * 10, 0, 0, 6400 * 10, 1000, CCW);
+          while(circular_para.motionstatus);
+          Circular_InterPolation(0, 6400 * 10, -6400 * 10, 0, 1000, CCW);
+          while(circular_para.motionstatus);
+          Circular_InterPolation(-6400 * 10, 0, 0, -6400 * 10, 1000, CCW);
+          while(circular_para.motionstatus);
+          Circular_InterPolation(0, -6400 * 10, 6400 * 10, 0, 1000, CCW);
+        }
+      }
+    }
+
+main函数中主要就是一些外设的初始化，包括步进电机的定时器初始化。然后在while循环中轮询按键，通过按键控制步进电机做圆弧插补。
+按下KEY2，做一个从第一象限开始的顺时针圆弧插补，总的运动轨迹为正圆；按下KEY3，做一个从第一象限开始的逆时针圆弧插补，运动轨迹同样为正圆。
 
 实验现象
 ------------------------
+使用两轴丝杆滑台组成一个标准X-Y滑动平台，将步进电机连接好，下载程序到开发板后，按下开发板的按键，可以看到丝杆滑台上的滑块沿着程序设定的圆弧轨迹运动。
