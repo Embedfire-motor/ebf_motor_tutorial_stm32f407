@@ -188,7 +188,7 @@ MOS管搭建驱动板
    :caption: 代码目录
    :linenos:
 
-   basis_part\F407\直流无刷电机-温度-电源电压读取
+   \base_code\basis_part\F407\直流无刷电机-温度-电源电压读取
 
 编程要点
 """""""""""""""""
@@ -623,7 +623,7 @@ get_curr_val()函数
    :caption: 代码目录
    :linenos:
 
-   basis_part\F407\直流无刷电机-温度电压保护
+   base_code\basis_part\F407\直流无刷电机-温度电压保护
 
 
 编程要点

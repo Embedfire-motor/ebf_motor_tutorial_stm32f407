@@ -481,30 +481,34 @@ set_computer_value()函数用来同步上位机显示的PID值。
 这个函数主要实现了位置式PID算法，用传入的目标值减去实际值得到误差值得到比例项，在对误差值进行累加得到积分项，
 用本次误差减去上次的误差得到微分项，然后通过前面章节介绍的位置式PID公式实现PID算法，并返回实际控制值。
 
-void bldcm_pid_control(void)
-{
-  int32_t speed_actual = get_motor_speed();   // 电机旋转的当前速度
+.. code-block:: c
+   :caption: bsp_pid.c-电机位置式PID算法实现
+   :linenos:
 
-  if (bldcm_data.is_enable)
-  {
-    float cont_val = 0;    // 当前控制值
-
-    cont_val = PID_realize(abs(speed_actual));
-    if (cont_val < 0)
+    void bldcm_pid_control(void)
     {
-      cont_val = 0;
-    }
+      int32_t speed_actual = get_motor_speed();   // 电机旋转的当前速度
 
-    cont_val = cont_val > PWM_MAX_PERIOD_COUNT ? PWM_MAX_PERIOD_COUNT : cont_val;
-    set_bldcm_speed(cont_val);
-    
-  #ifdef PID_ASSISTANT_EN
-    set_computer_value(SEND_FACT_CMD, CURVES_CH1, &speed_actual, 1);     // 给通道 1 发送实际值
-  #else
-    printf("实际值：%d. 目标值：%d\n", actual, get_pid_target());
-  #endif
-  }
-}
+      if (bldcm_data.is_enable)
+      {
+        float cont_val = 0;    // 当前控制值
+
+        cont_val = PID_realize(abs(speed_actual));
+        if (cont_val < 0)
+        {
+          cont_val = 0;
+        }
+
+        cont_val = cont_val > PWM_MAX_PERIOD_COUNT ? PWM_MAX_PERIOD_COUNT : cont_val;
+        set_bldcm_speed(cont_val);
+        
+      #ifdef PID_ASSISTANT_EN
+        set_computer_value(SEND_FACT_CMD, CURVES_CH1, &speed_actual, 1);     // 给通道 1 发送实际值
+      #else
+        printf("实际值：%d. 目标值：%d\n", actual, get_pid_target());
+      #endif
+      }
+    }
 
 该函数在定时器的中断里定时调用默认是50毫秒调用一次，如果改变了周期那么PID三个参数也需要做相应的调整，
 PID的控制周期与控制效果是息息相关的。
@@ -742,7 +746,7 @@ PID的控制周期与控制效果是息息相关的。
 (4) 根据电机的换相表编写换相中断回调函数
 (5) 根据定时器定义电机控制相关函数.
 (6) 配置基本定时器可以产生定时中断来执行PID运算
-(7) 编写位置式PID算法
+(7) 编写增量式PID算法
 (8) 编写速度控制函数
 (9) 增加上位机曲线观察相关代码
 (10) 编写按键控制代码
@@ -755,7 +759,7 @@ PID的控制周期与控制效果是息息相关的。
 完整代码请参考本节配套工程。
 
 .. code-block:: c
-   :caption: bsp_pid.c-位置式PID参数初始化
+   :caption: bsp_pid.c-增量式PID参数初始化
    :linenos:
 
     void PID_param_init()
