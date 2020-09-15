@@ -18,7 +18,7 @@
 # -- Project information -----------------------------------------------------
 
 project = '[野火]电机应用开发实战指南'
-copyright = '2019, embedfire-野火 www.embedfire.com'
+copyright = '2020, embedfire-野火 www.embedfire.com'
 author = 'embedfire-野火 www.embedfire.com'
 
 
@@ -50,7 +50,7 @@ language = 'zh_CN'
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
+exclude_patterns = []
 
 
 # -- Options for HTML output -------------------------------------------------
@@ -64,3 +64,40 @@ html_theme = 'sphinx_rtd_theme'
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
+
+# default hightlight languate
+highlight_language = "sh"
+
+
+###########################################################################
+#                        embedfire pdf - configuration                    #
+###########################################################################
+
+project_language = 'en'
+
+# User's Sphinx configurations
+language_user = globals().get('language', None)
+latex_engine_user = globals().get('latex_engine', None)
+latex_elements_user = globals().get('latex_elements', None)
+
+latex_use_xindy = False
+
+chinese = any([
+    language_user in ('zh_CN', 'zh_TW'),
+    project_language in ('zh_CN', 'zh_TW'),
+])
+
+japanese = any([
+    language_user == 'ja',
+    project_language == 'ja',
+])
+
+if chinese:
+    latex_engine = latex_engine_user or 'xelatex'
+
+    latex_elements_rtd = {
+        'preamble': '\\usepackage[UTF8]{ctex}\n',
+    }
+    latex_elements = latex_elements_user or latex_elements_rtd
+elif japanese:
+    latex_engine = latex_engine_user or 'platex'
