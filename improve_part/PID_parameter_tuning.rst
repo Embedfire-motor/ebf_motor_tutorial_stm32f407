@@ -22,10 +22,19 @@ PID控制器参数整定
 在实际的应用中用到的最多的应该就要属经验法（工程整定法），因为不同的控制系统的实际情况都是不一样的，除了理论公式一致以外其它的完全不同。
 所以就需要懂得理论并付诸于实践，才能使控制系统达到好的效果。
 
-.. image:: ../media/pidgif.gif
+.. image:: ../media/pid0.jpg
    :align: center
 
-先看上图中PID曲线动态图，这个图只描述了算法中的一部分参数，可以做来参考。
+.. image:: ../media/pid1.jpg
+   :align: center
+   
+.. image:: ../media/pid2.jpg
+   :align: center
+
+.. image:: ../media/pid3.jpg
+   :align: center
+
+先看上图中PID曲线图，这个图只描述了算法中的一部分参数，可以做来参考。
 
 PID参数整定方法
 ------------------

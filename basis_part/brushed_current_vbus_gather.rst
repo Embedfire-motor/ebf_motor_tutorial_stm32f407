@@ -171,9 +171,9 @@ MOS管搭建驱动板与主控板连接见下表所示。
 ^^^^^^^^^^^^^^^^^^^^^
 配套代码在下面目录中可以找到:
 
-.. code-block::
-   :caption: 代码目录
-   :linenos:
+.. highlight:: sh
+
+::
 
    basis_part\F407\直流有刷减速电机-电流电压读取-MOS管搭建板
 
@@ -198,7 +198,6 @@ ADC_Init()函数
 *****************
 
 .. code-block:: c
-   :name: ADC_Init(void)
    :caption: ADC_Init()函数
    :linenos:
 
@@ -220,7 +219,6 @@ ADC_GPIO_Config()函数
 **********************************
 
 .. code-block:: c
-   :name: ADC_GPIO_Config(void)
    :caption: ADC_GPIO_Config()函数
    :linenos:
 
@@ -251,7 +249,6 @@ adc_dma_init()函数
 **********************************
 
 .. code-block:: c
-   :name: adc_dma_init(void)
    :caption: adc_dma_init()函数
    :linenos:
 
@@ -297,7 +294,6 @@ ADC_Mode_Config()函数
 **********************************
 
 .. code-block:: c
-   :name: ADC_Mode_Config(void)
    :caption: ADC_Mode_Config()函数
    :linenos:
 
@@ -379,7 +375,6 @@ HAL_ADC_ConvCpltCallback()函数
 ********************************
 
 .. code-block:: c
-   :name: HAL_ADC_ConvCpltCallback
    :caption: HAL_ADC_ConvCpltCallback()函数
    :linenos:
 
@@ -434,7 +429,6 @@ get_curr_val()函数
 前面我们通过回调函数获得了采集的原始数据，现在我们对采集得到的原始数据进行处理，以得到真实的电流值。
 
 .. code-block:: c
-   :name: get_curr_val
    :caption: get_curr_val()函数
    :linenos:
 
@@ -480,7 +474,6 @@ get_curr_val()函数
 在得到有效的电流转换电压的采集值后，我们对该电压值进行转换操作，将其转换回电流，调用GET_ADC_CURR_VAL。
 
 .. code-block:: c
-   :name: GET_ADC_VDC_VAL
    :caption: GET_ADC_VDC_VAL()函数
    :linenos:
 
@@ -494,7 +487,6 @@ get_curr_val()函数
 """""""""""""""""
 
 .. code-block:: c
-   :name: main
    :caption: main()函数
    :linenos:
 
@@ -619,9 +611,9 @@ get_curr_val()函数
 
 配套代码在下面目录中可以找到:
 
-.. code-block::
-   :caption: 代码目录
-   :linenos:
+.. highlight:: sh
+
+::
 
    basis_part\F407\直流有刷减速电机-限电流-过压-欠压保护-MOS管搭建板
 
@@ -642,7 +634,6 @@ ADC_Init函数
 与前面电流采集的ADC_Init()函数除了ADC模式配置有区别外，其他初始化部分相同，下面我们来看不同的部分:
 
 .. code-block:: c
-   :name: 欠压ADC_Mode_Config
    :caption: 欠压ADC_Mode_Config
    :linenos:
 
@@ -698,7 +689,6 @@ ADC模拟看门狗溢出回调函数
 """"""""""""""""""""""""""""""""""
 
 .. code-block:: c
-   :name: HAL_ADC_LevelOutOfWindowCallback
    :caption: HAL_ADC_LevelOutOfWindowCallback
    :linenos:
 
@@ -732,7 +722,6 @@ ADC模拟看门狗溢出回调函数
 在上面我们配置了ADC模拟看门狗来做电压保护，我们现在用另一种方式，来处理限制电流的情况，就是在主函数中轮询。
 
 .. code-block:: c
-   :name: 限电流main函数
    :caption: 限电流main函数
    :linenos:
 

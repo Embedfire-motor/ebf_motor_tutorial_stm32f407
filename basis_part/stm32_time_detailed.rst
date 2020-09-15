@@ -1363,9 +1363,9 @@ bsp_advance_tim.c和bsp_advance_tim.h文件用来存定时器驱动程序及相�
 
 高级控制定时PWM输入模式
 
-.. code-block:: c
-   :caption: PWM输入模式配置
-   :linenos:
+.. highlight:: sh
+
+::
 
     static void TIM_PWMINPUT_Config(void)
     {

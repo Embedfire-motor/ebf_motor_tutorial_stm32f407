@@ -847,6 +847,7 @@ HAL_TIM_PeriodElapsedCallback函数将update加一，那么如果update大于1�
          }
       }
    }
+
 在main函数中首先初始化了各种外设，在死循环中检测按键的变化，按KEY1可以启动电机；按KEY2可以增大PWM占空比，增加电机旋转速度；
 按KEY3可以减小PWM占空比，减小电机旋转速度；按KEY4可以使电机旋转方向改变；按KEY4可以停止电机旋转；
 

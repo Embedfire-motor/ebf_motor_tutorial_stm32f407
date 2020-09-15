@@ -59,9 +59,9 @@ p点和n点没有电流到运放的2脚和3脚，可以得：
 热敏电阻器是利用金属氧化物半导体具有较大温度系数的特性，对温度敏感的电阻器。
 其电阻值的温度依赖性为:
 
-.. code-block::
-   :caption: 电阻值的温度依赖性
-   :linenos:
+.. highlight:: sh
+
+::
 
    Rt=R25 exp[B(1/T-1/T25)]
 
@@ -72,17 +72,17 @@ p点和n点没有电流到运放的2脚和3脚，可以得：
 
 B的计算公式如下：
 
-.. code-block::
-   :caption: B值计算公式
-   :linenos:
+.. highlight:: sh
+
+::
 
    B=ln(Rt/R25)/(1/T-1/T25)
 
 由上式可解得：
 
-.. code-block::
-   :caption: 温度计算公式
-   :linenos:
+.. highlight:: sh
+
+::
 
    T=B*R25/(B+T25*ln(Rt/R25))    （1）
 
@@ -184,9 +184,9 @@ MOS管搭建驱动板
 ^^^^^^^^^^^^^^^^^^^^^
 配套代码在下面目录中可以找到:
 
-.. code-block::
-   :caption: 代码目录
-   :linenos:
+.. highlight:: sh
+
+::
 
    \base_code\basis_part\F407\直流无刷电机-温度-电源电压读取
 
@@ -212,7 +212,6 @@ ADC_Init()函数
 *****************
 
 .. code-block:: c
-   :name: ADC_Init(void)
    :caption: ADC_Init()函数
    :linenos:
 
@@ -234,7 +233,6 @@ ADC_GPIO_Config()函数
 **********************************
 
 .. code-block:: c
-   :name: ADC_GPIO_Config(void)
    :caption: ADC_GPIO_Config()函数
    :linenos:
 
@@ -265,7 +263,6 @@ adc_dma_init()函数
 **********************************
 
 .. code-block:: c
-   :name: adc_dma_init(void)
    :caption: adc_dma_init()函数
    :linenos:
 
@@ -311,7 +308,6 @@ ADC_Mode_Config()函数
 **********************************
 
 .. code-block:: c
-   :name: ADC_Mode_Config(void)
    :caption: ADC_Mode_Config()函数
    :linenos:
 
@@ -396,7 +392,6 @@ HAL_ADC_ConvCpltCallback()函数
 ********************************
 
 .. code-block:: c
-   :name: HAL_ADC_ConvCpltCallback
    :caption: HAL_ADC_ConvCpltCallback()函数
    :linenos:
 
@@ -455,7 +450,6 @@ get_curr_val()函数
 前面我们通过回调函数获得了采集的原始数据，现在我们对采集得到的原始数据进行处理，以得到真实的温度。
 
 .. code-block:: c
-   :name: get_curr_val
    :caption: get_curr_val()函数
    :linenos:
 
@@ -485,7 +479,6 @@ get_curr_val()函数
 在公式中我们使用了**ln**对数函数，在C语言中与之对应的是**log**函数。
 
 .. code-block:: c
-   :name: GET_ADC_VDC_VAL
    :caption: GET_ADC_VDC_VAL()函数
    :linenos:
 
@@ -498,7 +491,6 @@ get_curr_val()函数
 """""""""""""""""
 
 .. code-block:: c
-   :name: main
    :caption: main()函数
    :linenos:
 
@@ -619,9 +611,9 @@ get_curr_val()函数
 
 配套代码在下面目录中可以找到:
 
-.. code-block::
-   :caption: 代码目录
-   :linenos:
+.. highlight:: sh
+
+::
 
    base_code\basis_part\F407\直流无刷电机-温度电压保护
 
@@ -642,7 +634,6 @@ ADC_Init函数
 与前面电流采集的ADC_Init()函数除了ADC模式配置有区别外，其他初始化部分相同，下面我们来看不同的部分:
 
 .. code-block:: c
-   :name: 欠压ADC_Mode_Config
    :caption: 欠压ADC_Mode_Config
    :linenos:
 
@@ -698,7 +689,6 @@ ADC模拟看门狗溢出回调函数
 """"""""""""""""""""""""""""""""""
 
 .. code-block:: c
-   :name: HAL_ADC_LevelOutOfWindowCallback
    :caption: HAL_ADC_LevelOutOfWindowCallback
    :linenos:
 
@@ -734,7 +724,6 @@ ADC模拟看门狗溢出回调函数
 在上面我们配置了ADC模拟看门狗来做电压保护，我们现在用另一种方式，来处理限制电流的情况，就是在主函数中轮询。
 
 .. code-block:: c
-   :name: 限电流main函数
    :caption: 限电流main函数
    :linenos:
 
