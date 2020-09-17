@@ -3,11 +3,11 @@
 关于本项目
 ==============
 
-本项目的github地址：https://github.com/Embdefire/ebf_contribute_guide
+本项目的github地址：https://github.com/Embedfire-motor/ebf_motor_tutorial_stm32f407
 
-本项目的gitee 地址：https://gitee.com/wildfireteam/ebf_contribute_guide
+本项目的gitee 地址：https://gitee.com/Embedfire-motor/ebf_motor_tutorial_stm32f407
 
-点击右侧链接可在线阅读本项目文档：《 `[野火]sphinx文档规范与模版 <http://contribute.doc.embedfire.com>`_ 》
+点击右侧链接可在线阅读本项目文档：《 `[野火]电机应用实战开发指南 <https://ebf-motor-tutorial-stm32f407.readthedocs.io>`_ 》
 
 
 本文档是关于如何使用sphinx编写文档的说明。
