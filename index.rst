@@ -15,7 +15,6 @@
    README
    about_us
    contribute/quick-contribute
-   TODO
 
 .. toctree::
    :maxdepth: 1
