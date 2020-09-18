@@ -169,7 +169,7 @@ TIM_Encoder_InitTypeDef
     }TIM_Encoder_InitTypeDef;
 
 1. EncoderMode：编码器模式选择，用来设置计数器采集编码器信号的方式，可选通道A计数、通道B计数和双通道计数。
-   它设定TIMx_DIER寄存器的SMS[2:0]位。这个成员实际是用来设置编码器接口的倍频数的，当选择通道A或B计数时为2倍频，双通道计数时为4倍频。
+   它设定TIMx_SMCR寄存器的SMS[2:0]位。这个成员实际是用来设置编码器接口的倍频数的，当选择通道A或B计数时为2倍频，双通道计数时为4倍频。
 #. ICxPolarity：输入捕获信号极性选择，用于设置定时器通道在编码器模式下的输入信号是否反相。
    它设定TIMx_CCER寄存器的CCxNP位和CCxP位。
 #. ICxSelection：输入通道选择，ICx的信号可来自三个输入通道，分别为 TIM_ICSELECTION_DIRECTTI、
@@ -178,8 +178,6 @@ TIM_Encoder_InitTypeDef
 #. ICxPrescaler：输入捕获通道预分频器，可设置1、2、4、8分频。它设定TIMx_CCMRx寄存器的ICxPSC[1:0]位的值。
 #. ICxFilter：输入捕获滤波器设置，可选设置0x0至0x0F。它设定TIMx_CCMRx寄存器ICxF[3:0]位的值。
 
-
-.. _减速电机编码器测速实验:
 
 减速电机编码器测速实验
 ~~~~~~~~~~~~~~~~~~~~~~~~
