@@ -16,6 +16,7 @@
    about_us
    contribute/quick-contribute
 
+
 .. toctree::
    :maxdepth: 1
    :caption: 如何学习
@@ -61,7 +62,6 @@
    improve_part/step_motor_double_loop_control
    improve_part/step_motor_T_speed
    improve_part/step_motor_S_speed
-   improve_part/step_motor_spta_control
    improve_part/step_motor_linear_interpolation
    improve_part/step_motor_circular_interpolation
    improve_part/BLDC_speed_loop_control
@@ -69,18 +69,9 @@
    improve_part/X-CUBE-MCSDK_installation_use
 
 
-.. toctree::
-   :maxdepth: 2
-   :caption: 常见问题
-
-   faq/index
 
 .. toctree::
    :maxdepth: 1
    :caption: 版权
 
    LICENSE
-
-.. toctree::
-   :maxdepth: 1
-   :caption: 发布文档到readthedoc
