@@ -566,7 +566,7 @@ set_computer_value()函数用来同步上位机显示的PID值。
 用本次误差减去上次的误差得到微分项，然后通过前面章节介绍的位置式PID公式实现PID算法，并返回实际控制值。
 
 .. code-block:: c
-   :caption: bsp_pid.c-电机位置式PID算法实现
+   :caption: bsp_bldcm_control-电机位置式PID算法实现
    :linenos:
 
     void bldcm_pid_control(void)
