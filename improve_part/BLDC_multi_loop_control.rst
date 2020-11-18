@@ -101,14 +101,14 @@
 
         int32_t target_location = 2400;
         
-            /* 初始化系统时钟为168MHz */
-            SystemClock_Config();
+        /* 初始化系统时钟为168MHz */
+        SystemClock_Config();
         
         /* HAL 库初始化 */
         HAL_Init();
         
-            /* 初始化按键GPIO */
-            Key_GPIO_Config();
+        /* 初始化按键GPIO */
+        Key_GPIO_Config();
         
         /* LED 灯初始化 */
         LED_GPIO_Config();
@@ -242,8 +242,8 @@ PID参数初始化、整定说明
             pid_speed.err_last=0.0;
             pid_speed.integral=0.0;
 
-            pid_speed.Kp = 0.13;
-            pid_speed.Ki = 0.12;
+            pid_speed.Kp = 0.35;
+            pid_speed.Ki = 0.18;
             pid_speed.Kd = 0.01;
 
 
