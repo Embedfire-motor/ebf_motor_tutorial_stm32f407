@@ -1,14 +1,10 @@
-.. vim: syntax=rst
-
-无刷电机速度环控制（BLDC）
+无刷电机位置环控制（BLDC）
 ==========================================
+承接上一章节的直流无刷电机速度环PID控制。
+电机控制除了速度之外，另一种常见的应用就是对于电机旋转位置的控制。
+本章节中我们就通过位置环的PID控制来实现直流无刷电机的位置控制。
 
-前面我们学习了无刷电机简单的6步PWM控制。但是我们在实际使用中并不是只是简单的PWM控制就能满足应用要求，
-通常我们还需要对速度进行控制控制，如前面章节中讲到的为什么使用PID一节中列举的小车控制一样，
-如果不对速度进行控制可能系统运行效果会不如预期那么好，
-本章节中我们就通过速度环的PID控制来实现直流无刷电机的速度控制。
-
-本章通过我们前面学习的位置式PID和增量式PID两种控制方式分别来实现速度环的控制，
+本章通过我们前面学习的位置式PID和增量式PID两种控制方式分别来实现位置环的控制，
 如果还不知道什么是位置式PID和增量式PID，请务必先学习前面PID算法的通俗解说这一章节。
 
 硬件设计
@@ -99,15 +95,14 @@
 (5) 根据定时器定义电机控制相关函数.
 (6) 配置基本定时器可以产生定时中断来执行PID运算
 (7) 编写位置式PID算法
-(8) 编写速度控制函数
+(8) 编写位置控制函数
 (9) 增加上位机曲线观察相关代码
 (10) 编写按键控制代码
 
 软件分析
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-在编程要点中的1和2在前章节已经讲解过，这里就不在详细讲解，
-如果不明白请先学习前面相关章节的内容。这里主要讲解速度的获取方法和分析PID算法的控制实现部分。
+在编程要点中的与上一章节重复的部分，这里就不在详细讲解，
+如果不明白请先学习前面相关章节的内容。这里主要讲解位置的获取方法和分析PID算法的控制实现部分。
 
 .. code-block:: c
    :caption: bsp_motor_tim.c-设置pwm输出的占空比
@@ -186,15 +181,15 @@
 最后调用update_speed_dir()更新速度方向。
 
 .. code-block:: c
-  :caption: bsp_motor_tim.c-更新电机速度方向
+  :caption: bsp_motor_tim.c-更新电机速度方向与位置
   :linenos:
 
-    static void update_speed_dir(uint8_t dir_in)
+    static void update_speed_location_dir(uint8_t dir_in)
     {
       uint8_t step[6] = {1, 3, 2, 6, 4, 5};
 
       static uint8_t num_old = 0;
-      uint8_t step_loc = 0;    // 记录当前霍尔位置
+      uint8_t step_loc = 0;    // 用于记录当前霍尔位置
       int8_t dir = 1;
       
       for (step_loc=0; step_loc<6; step_loc++)
@@ -239,10 +234,13 @@
       }
       
       num_old = step_loc;
-      motor_drive.speed *= dir;
+      motor_drive.speed_group[count-1]*= dir;
+      motor_drive.location += dir;    // 更新位置
     }
 
+
 该函数用于更新电机的速度方向，使用当前读到的霍尔值，与上一次读到的霍尔值进行对比，来确定方向。
+另外，根据当前的确定方向，进行位置的更新计数
 
 .. code-block:: c
   :caption: bsp_motor_tim.c-换相实现函数
@@ -425,7 +423,7 @@
 
     /* 累计 TIM_Period个后产生一个更新或者中断*/		
       //当定时器从0计数到BASIC_PERIOD_COUNT-1，即为BASIC_PERIOD_COUNT次，为一个定时周期
-    #define BASIC_PERIOD_COUNT    (50*50)
+    #define BASIC_PERIOD_COUNT    (50*20)
 
     //定时器时钟源TIMxCLK = 2 * PCLK1  
     //				PCLK1 = HCLK / 4 
@@ -443,7 +441,7 @@
 这里封装了定时器的一些相关的宏，使用宏定义非常方便程序升级、移植。使用SET_BASIC_TIM_PERIOD(T)这个宏可以设置定时器的周期，
 这样可以通过按键或者上位机来设置这个定时器的中断周期，使用GET_BASIC_TIM_PERIOD()这个宏可以得到定时器的当前周期，
 不过使用的两个宏是有要求的，需要定时器时钟源的频率是84MHz，且预分频系数为1680。
-如果更换定时器和修改预分频器则需要重新计算这个宏里面的参数.我们来看一下当前宏中周期的计算:84000000/1680/50 = 1000,
+如果更换定时器和修改预分频器则需要重新计算这个宏里面的参数.我们来看一下当前宏中周期的计算:84000000/1680/20 = 2500,
 84000000为时钟源的频率，1680为预分频系数，50为自动重装载值，1000为定时器产生更新中断的频率，
 当定时器以(84000000/1680)Hz的频率计数到50时刚好是1ms，所以只要设置自动重装载值为50的n倍减一时，
 就可以得到n毫秒的更新中断，注意n是1到1000的正整数。
@@ -517,9 +515,9 @@
       pid.err_last=0.0;
       pid.integral=0.0;
 
-      pid.Kp = 0.3;//24
-      pid.Ki = 0.2;
-      pid.Kd = 0.0;
+      pid.Kp = 124;
+      pid.Ki = 0;
+      pid.Kd = 90;
 
     #if defined(PID_ASSISTANT_EN)
       float pid_temp[3] = {pid.Kp, pid.Ki, pid.Kd};
@@ -568,18 +566,18 @@ set_computer_value()函数用来同步上位机显示的PID值。
 用本次误差减去上次的误差得到微分项，然后通过前面章节介绍的位置式PID公式实现PID算法，并返回实际控制值。
 
 .. code-block:: c
-   :caption: bsp_pid.c-电机位置式PID算法实现
+   :caption: bsp_bldcm_control-电机位置式PID算法实现
    :linenos:
 
     void bldcm_pid_control(void)
     {
-      int32_t speed_actual = get_motor_speed();   // 电机旋转的当前速度
+      int32_t location_actual = get_motor_location();   // 电机旋转的当前位置
 
       if (bldcm_data.is_enable)
       {
         float cont_val = 0;    // 当前控制值
 
-        cont_val = PID_realize(speed_actual);
+        cont_val = PID_realize(location_actual);
 
         if (cont_val < 0)
         {
@@ -596,17 +594,17 @@ set_computer_value()函数用来同步上位机显示的PID值。
         set_bldcm_speed(cont_val);
         
       #ifdef PID_ASSISTANT_EN
-        set_computer_value(SEND_FACT_CMD, CURVES_CH1, &speed_actual, 1);     // 给通道 1 发送实际值
+        set_computer_value(SEND_FACT_CMD, CURVES_CH1, &location_actual, 1);     // 给通道 1 发送实际值
       #else
-        printf("实际值：%d, 目标值：%.0f，控制值: %.0f\n", speed_actual, get_pid_target(), cont_val);
+        printf("实际值：%d, 目标值： %.0f，控制值: %.0f\n", location_actual, get_pid_target(), cont_val);
       #endif
       }
     }
 
 
-该函数在定时器的中断里定时调用默认是50毫秒调用一次，如果改变了周期那么PID三个参数也需要做相应的调整，
+该函数在定时器的中断里定时调用默认是20毫秒调用一次，如果改变了周期那么PID三个参数也需要做相应的调整，
 PID的控制周期与控制效果是息息相关的。
-调用get_motor_speed()获取电机的旋转速度，单位是转每分钟。把实际速度带入PID_realize(speed_actual)进行运算，
+调用get_motor_location()获取电机的旋转位置，单位是多少个控制信号，一个控制信号代表30°。把实际速度带入PID_realize(speed_actual)进行运算，
 根据运算结果的正负，设置电机的旋转方向。
 最后对输出的结果做一个上限处理，最后用于PWM占空比的控制，最后将实际的速度值发送到上位机绘制变化的曲线。
 
@@ -698,116 +696,112 @@ PID的控制周期与控制效果是息息相关的。
   :caption: main.c-主函数
   :linenos:
 
-    int main(void) 
-    {
-      int16_t target_speed = 1200;
-      uint8_t i = 0;
-      
-      /* 初始化系统时钟为168MHz */
-      SystemClock_Config();
-      
-      /* HAL 库初始化 */
-      HAL_Init();
-      
-      /* 初始化按键GPIO */
-      Key_GPIO_Config();
-      
-      /* LED 灯初始化 */
-      LED_GPIO_Config();
-      
-      /* 协议初始化 */
-      protocol_init();
-      
-      /* 调试串口初始化 */
-      DEBUG_USART_Config();
-      
-      PID_param_init();
-      
-      /* 周期控制定时器 50ms */
-      TIMx_Configuration();
-
-      /* 电机初始化 */
-      bldcm_init();
-      
-      /* 设置目标速度 */
-      set_pid_target(target_speed);
-      
-      
-    #if defined(PID_ASSISTANT_EN)
-      set_computer_value(SEND_STOP_CMD, CURVES_CH1, NULL, 0);                // 同步上位机的启动按钮状态
-      set_computer_value(SEND_TARGET_CMD, CURVES_CH1, &target_speed, 1);     // 给通道 1 发送目标值
-    #endif
-      
-      while(1)
+      int main(void) 
       {
-        /* 接收数据处理 */
-        receiving_process();
+        int32_t target_location = 24;
         
-        /* 扫描KEY1 */
-        if( Key_Scan(KEY1_GPIO_PORT,KEY1_PIN) == KEY_ON  )
-        {
-          /* 使能电机 */
-          set_bldcm_enable();
-          
-        #if defined(PID_ASSISTANT_EN) 
-          set_computer_value(SEND_START_CMD, CURVES_CH1, NULL, 0);               // 同步上位机的启动按钮状态
-        #endif
-        }
+        /* 初始化系统时钟为168MHz */
+        SystemClock_Config();
         
-        /* 扫描KEY2 */
-        if( Key_Scan(KEY2_GPIO_PORT,KEY2_PIN) == KEY_ON  )
-        {
-          /* 停止电机 */
-          set_bldcm_disable();
-          
-        #if defined(PID_ASSISTANT_EN) 
-          set_computer_value(SEND_STOP_CMD, CURVES_CH1, NULL, 0);               // 同步上位机的启动按钮状态
-        #endif
-        }
+        /* HAL 库初始化 */
+        HAL_Init();
         
-        /* 扫描KEY3 */
-        if( Key_Scan(KEY3_GPIO_PORT,KEY3_PIN) == KEY_ON  )
-        {
-          /* 增大占空比 */
-          target_speed += 100;
-          
-          if(target_speed > 3000)
-            target_speed = 3000;
-          
-          set_pid_target(target_speed);
-          
-        #if defined(PID_ASSISTANT_EN)
-          set_computer_value(SEND_TARGET_CMD, CURVES_CH1,  &target_speed, 1);     // 给通道 1 发送目标值
-        #endif
-        }
+        /* 初始化按键GPIO */
+        Key_GPIO_Config();
         
-        /* 扫描KEY4 */
-        if( Key_Scan(KEY4_GPIO_PORT,KEY4_PIN) == KEY_ON  )
-        {
-          target_speed -= 100;
+        /* LED 灯初始化 */
+        LED_GPIO_Config();
+        
+        /* 协议初始化 */
+        protocol_init();
+        
+        /* 调试串口初始化 */
+        DEBUG_USART_Config();
+        
+        PID_param_init();
+        
+        /* 周期控制定时器 50ms */
+        TIMx_Configuration();
 
-          if(target_speed < -3000)
-            target_speed = -3000;
-          
-          set_pid_target(target_speed);
-          
-        #if defined(PID_ASSISTANT_EN)
-          set_computer_value(SEND_TARGET_CMD, CURVES_CH1,  &target_speed, 1);     // 给通道 1 发送目标值
-        #endif
-        }
+        /* 电机初始化 */
+        bldcm_init();
         
-        /* 扫描KEY5 */
-        if( Key_Scan(KEY5_GPIO_PORT,KEY5_PIN) == KEY_ON  )
+        /* 设置目标位置 */
+        set_pid_target(target_location);
+        
+      #if defined(PID_ASSISTANT_EN)
+        set_computer_value(SEND_STOP_CMD, CURVES_CH1, NULL, 0);                // 同步上位机的启动按钮状态
+        set_computer_value(SEND_TARGET_CMD, CURVES_CH1, &target_location, 1);     // 给通道 1 发送目标值
+      #endif
+        
+        while(1)
         {
-          target_speed = -target_speed;
-          set_pid_target(target_speed);
+          /* 接收数据处理 */
+          receiving_process();
+          
+          /* 扫描KEY1 */
+          if( Key_Scan(KEY1_GPIO_PORT,KEY1_PIN) == KEY_ON  )
+          {
+            /* 使能电机 */
+            set_bldcm_enable();
+            
+          #if defined(PID_ASSISTANT_EN) 
+            set_computer_value(SEND_START_CMD, CURVES_CH1, NULL, 0);               // 同步上位机的启动按钮状态
+          #endif
+          }
+          
+          /* 扫描KEY2 */
+          if( Key_Scan(KEY2_GPIO_PORT,KEY2_PIN) == KEY_ON  )
+          {
+            /* 停止电机 */
+            set_bldcm_disable();
+            
+          #if defined(PID_ASSISTANT_EN) 
+            set_computer_value(SEND_STOP_CMD, CURVES_CH1, NULL, 0);               // 同步上位机的启动按钮状态
+          #endif
+          }
+          
+          /* 扫描KEY3 */
+          if( Key_Scan(KEY3_GPIO_PORT,KEY3_PIN) == KEY_ON  )
+          {
+            /* 增大占空比 */
+            target_location += 12;
+            
+            set_pid_target(target_location);
+            
+          #if defined(PID_ASSISTANT_EN)
+            set_computer_value(SEND_TARGET_CMD, CURVES_CH1,  &target_location, 1);     // 给通道 1 发送目标值
+          #endif
+          }
+          
+          /* 扫描KEY4 */
+          if( Key_Scan(KEY4_GPIO_PORT,KEY4_PIN) == KEY_ON  )
+          {
+            target_location -= 12;
+            
+            set_pid_target(target_location);
+            
+          #if defined(PID_ASSISTANT_EN)
+            set_computer_value(SEND_TARGET_CMD, CURVES_CH1,  &target_location, 1);     // 给通道 1 发送目标值
+          #endif
+          }
+          
+          /* 扫描KEY5 */
+          if( Key_Scan(KEY5_GPIO_PORT,KEY5_PIN) == KEY_ON  )
+          {
+            
+            target_location *= -1;
+            set_pid_target(target_location);
+            
+        #if defined(PID_ASSISTANT_EN)
+            set_computer_value(SEND_TARGET_CMD, CURVES_CH1,  &target_location, 1);     // 给通道 1 发送目标值
+          #endif
+          }
         }
       }
-    }
 
-在主函数里面首先做了一些外设的初始化，然后通过按键可以控制电机的启动、停止和目标速度的设定，
+在主函数里面首先做了一些外设的初始化，然后通过按键可以控制电机的启动、停止和目标位置的设定，
 在使用上位机的情况下这些操作也可以通过上位机完成。
-
 
 下载验证
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -815,12 +809,12 @@ PID的控制周期与控制效果是息息相关的。
 我们按前面介绍的硬件连接好电机和驱动板。
 
 将程序编译下载后，使用Type-C数据线连接开发板到电脑USB，打开野火调试助手-PID调试助手来观察电机的运行效果。
-按下KEY1可以启动电机，按下KEY2可以停止电机，按下KEY3可以加速，按下KEY4可以减速。按下按键改变速度后，
+按下KEY1可以启动电机，按下KEY2可以停止电机，按下KEY3可以增加顺时针方向的转动，按下KEY4可以增加逆时针方向的转动。按下按键改变位置后，
 我们可以通过上位机来观察速度的变化情况，也可以通过上位机来控制电机。
 
-.. image:: ../media/无刷-速度环-位置式运行.png
+.. image:: ../media/无刷-位置环-位置式运行.png
    :align: center
-   :alt: 速度环位置式PID控制效果
+   :alt: 位置环位置式PID控制效果
 
 直流无刷电机速度环控制-增量式PID实现
 ------------------------------------------
@@ -867,10 +861,10 @@ PID的控制周期与控制效果是息息相关的。
       pid.err_last = 0.0;
       pid.err_next = 0.0;
       
-      pid.Kp = 0.30;
-      pid.Ki = 0.08;
-      pid.Kd = 0.01;
-      
+      pid.Kp = 165;
+      pid.Ki = 0;
+      pid.Kd = 148;
+          
     #if defined(PID_ASSISTANT_EN)
       float pid_temp[3] = {pid.Kp, pid.Ki, pid.Kd};
       set_computer_value(SEND_P_I_D_CMD, CURVES_CH1, pid_temp, 3);     // 给通道 1 发送 P I D 值
@@ -924,6 +918,9 @@ set_computer_value()函数用来同步上位机显示的PID值。
 按下KEY1可以启动电机，按下KEY2可以停止电机，按下KEY3可以加速，按下KEY4可以减速。按下按键改变速度后，
 我们可以通过上位机来观察速度的变化情况，也可以通过上位机来控制电机。下图是电机运行效果图。
 
-.. image:: ../media/无刷-速度环-增量式运行.png
+.. image:: ../media/无刷-位置环-增量式运行.png
    :align: center
-   :alt: 速度环增量式PID控制效果
+   :alt: 位置环增量式PID控制效果
+
+
+

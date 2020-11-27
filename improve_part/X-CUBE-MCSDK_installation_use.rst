@@ -103,7 +103,7 @@ ST Motor Control Workbench 的使用
       - BLDC
       - PMSM
     * - 极对数
-      - 4对极
+      - 2对极
       - 4对极
     * - 额定转速
       - 3000RPM
