@@ -32,7 +32,7 @@ build-job:
     - cd _build/latex/ && latexmk -r latexmkrc -pdf -f -dvi- -ps-  -interaction=nonstopmode
   
   #允许错误运行
-  allow_failure: true
+  #allow_failure: true
 
 
 deploy-job:
