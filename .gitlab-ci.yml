@@ -1,0 +1,55 @@
+stages: # 分段
+  - install
+  - build
+  - deploy
+  # - clear
+
+cache: # 缓存
+  paths:
+    - _build
+
+install-job:
+  tags:
+    - pdf
+  stage: install
+  script:
+    #删除以前的缓存文件
+    - make clean
+    #rst转latex文件
+    #- sphinx-build -b latex -D language=en -d _build/doctrees . _build/latex
+    - make latex
+
+build-job:
+  tags:
+    - pdf
+  stage: build
+  script:
+  #复制相关资源文件
+    - cp -r /home/jiawen/rst2pdf/rst/latex2pdf/workfile/*  /env/flyleaf/gitlab_runner_build/builds/RsUzVMKT/0/module_pub/adc_dac/ad7192/ebf_adc_ad7192_rst/_build/latex/
+  #使用python脚本处理latex文件
+    - python3 latexbuild.py
+  #latex文件生成pdf
+    - cd _build/latex/ && latexmk -r latexmkrc -pdf -f -dvi- -ps-  -interaction=nonstopmode
+  
+  #允许错误运行
+  allow_failure: true
+
+
+deploy-job:
+  tags:
+    - pdf
+  stage: deploy
+  script:
+    #修改文件名称
+    - python3 latexbuild2.py 
+    #移动文件到指定位置
+    # - cd _build/latex/ 
+    # - cp *.pdf /home/jiawen/rst2pdf/rst/pdf/
+
+# clear-job:
+#   tags:
+#     - pdf
+#   stage: clear
+#   script:
+#     #清除缓存文件
+#     - make clean
