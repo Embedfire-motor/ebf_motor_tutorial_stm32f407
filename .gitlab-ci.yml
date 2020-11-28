@@ -1,6 +1,7 @@
 stages: # 分段
   - install
   - build
+  - rebuild
   - deploy
   # - clear
 
@@ -32,8 +33,17 @@ build-job:
     - cd _build/latex/ && latexmk -r latexmkrc -pdf -f -dvi- -ps-  -interaction=nonstopmode
   
   #允许错误运行
-  #allow_failure: true
+  allow_failure: true
 
+rebuild-job:
+  tags:
+    - pdf
+  stage: rebuild
+  script:
+    - cd _build/latex/ && rm output.aux
+  #latex文件生成pdf
+    - latexmk -r latexmkrc -pdf -f -dvi- -ps-  -interaction=nonstopmode
+  
 
 deploy-job:
   tags:
