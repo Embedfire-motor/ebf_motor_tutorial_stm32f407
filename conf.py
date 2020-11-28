@@ -106,11 +106,11 @@ latex_elements = {
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% start %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     \geometry{left=2cm,right=2cm,top=2.5cm,bottom=4cm}%页边距具体数值
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% end %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    
-\PassOptionsToPackage{quiet}{Fancyhdr}
-\PassOptionsToPackage{quiet}{hyperref}
-\PassOptionsToPackage{quiet}{xeCJK}
-\PassOptionsToPackage{quiet}{fontspec}
-\usepackage[SlantFont]{xeCJK}%设置中文字体
+\PassOptionsToPackage{silence}{Fancyhdr}
+\PassOptionsToPackage{silence}{hyperref}
+\PassOptionsToPackage{silence}{xeCJK}
+\PassOptionsToPackage{silence}{fontspec}
+\usepackage{xeCJK}%设置中文字体
     \setCJKfamilyfont{hei}{SimHei} %黑体hei
     \setCJKfamilyfont{sun}{SimSun} %黑体hei
     \newcommand{\hei}{\CJKfamily{hei}} %黑体(Windows自带simhei.ttf,linux上需要安装字体)
