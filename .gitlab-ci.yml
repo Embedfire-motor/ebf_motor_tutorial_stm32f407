@@ -1,7 +1,6 @@
 stages: # 分段
   - install
   - build
-  - rebuild
   - deploy
   # - clear
 
@@ -34,17 +33,6 @@ build-job:
   
   #允许错误运行
   allow_failure: true
-
-rebuild-job:
-  tags:
-    - pdf
-  stage: rebuild
-  script:
-    #使用python脚本处理latex文件
-    - python3 latexbuild.py
-    - cd _build/latex/ 
-  #latex文件生成pdf
-    - latexmk -r latexmkrc -pdf -f -dvi- -ps-  -interaction=nonstopmode
   
 
 deploy-job:
