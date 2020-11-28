@@ -33,6 +33,7 @@ f_new = open("_build/latex/output.tex", "w", encoding="utf-8")
 
 while line:
     if line in old_str:
+        print("origin line: ",line)
         line_num = old_str.index(line)
         line = new_str[line_num]
         print("change line: ",line)
