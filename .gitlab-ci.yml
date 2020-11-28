@@ -43,8 +43,6 @@ rebuild-job:
     #使用python脚本处理latex文件
     - python3 latexbuild.py
     - cd _build/latex/ 
-    - rm output.aux
-    - rm output.pdf
   #latex文件生成pdf
     - latexmk -r latexmkrc -pdf -f -dvi- -ps-  -interaction=nonstopmode
   
