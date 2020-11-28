@@ -110,12 +110,11 @@ latex_elements = {
 \PassOptionsToPackage{quiet}{hyperref}
 \PassOptionsToPackage{quiet}{xeCJK}
 \PassOptionsToPackage{quiet}{fontspec}
-\usepackage{xeCJK}%设置中文字体
+\usepackage[SlantFont]{xeCJK}%设置中文字体
     \setCJKfamilyfont{hei}{SimHei} %黑体hei
     \setCJKfamilyfont{sun}{SimSun} %黑体hei
     \newcommand{\hei}{\CJKfamily{hei}} %黑体(Windows自带simhei.ttf,linux上需要安装字体)
     \newcommand{\sun}{\CJKfamily{sun}} %黑体(Windows自带simsun.ttf,linux上需要安装字体)
-\setsansfont{Verdana}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% start %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \setcounter{tocdepth}{2} %目录深度
