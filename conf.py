@@ -106,6 +106,7 @@ latex_elements = {
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% start %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     \geometry{left=2cm,right=2cm,top=2.5cm,bottom=4cm}%页边距具体数值
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% end %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    
+\PassOptionsToPackage{quiet}{hyperref}
 \PassOptionsToPackage{quiet}{xeCJK}
 \PassOptionsToPackage{quiet}{fontspec}
 \usepackage{xeCJK}%设置中文字体
