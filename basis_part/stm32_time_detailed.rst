@@ -177,16 +177,21 @@ HAL 库函数对定时器外设建立了四个初始化结构体，基本定时�
 初始化结构体定义在 stm32f4xx_hal_tim.h 文件中，
 初始化库函数定义在 stm32f4xx_hal_tim.c 文件中，编程时我们可以结合这两个文件内注释使用。
 
-.. code-block:: c
+.. code-block:: guess
    :caption: 定时器基本初始化结构体
    :linenos:
 
     typedef struct {
-        uint16_t Prescaler;         // 预分频器
-        uint16_t CounterMode;       // 计数模式
-        uint32_t Period;            // 定时器周期
-        uint16_t ClockDivision;     // 时钟分频
-        uint8_t RepetitionCounter;  // 重复计算器
+        uint16_t Prescaler;         
+        // 预分频器
+        uint16_t CounterMode;       
+        // 计数模式
+        uint32_t Period;            
+        // 定时器周期
+        uint16_t ClockDivision;     
+        // 时钟分频
+        uint8_t RepetitionCounter;  
+        // 重复计算器
     } TIM_Base_InitTypeDef;
 
 
