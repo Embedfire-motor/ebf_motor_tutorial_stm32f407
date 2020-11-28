@@ -9,6 +9,9 @@ old_str = []
 
 old_str.append("\\documentclass[letterpaper,10pt,english]{sphinxmanual}\n")
 new_str.append("\\documentclass[12pt,english,oneside,AutoFakeBold]{sphinxmanual}\n")
+
+old_str.append('\\addto\captionsenglish{\\renewcommand{\\contentsname}{关于本项目}}\n')
+new_str.append("\n")
 #生成的tex文档中需要替换的行，使用list.append方法将需要替换的行内容
 #成对添加到new_str = []和old_str = []
 
