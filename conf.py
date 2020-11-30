@@ -104,12 +104,9 @@ latex_elements = {
 \def\pageautorefname{page}
 \usepackage{geometry}%用于设置页面上下左右页边距
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% start %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    \geometry{left=2cm,right=2cm,top=3.5cm,bottom=4cm}%页边距具体数值
+    \geometry{left=2cm,right=2cm,top=3cm,bottom=4cm}%页边距具体数值
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% end %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    
 
-
-\PassOptionsToPackage{quiet}{Fancyhdr}
-\PassOptionsToPackage{silence}{hyperref}
 \PassOptionsToPackage{silence}{xeCJK}
 \PassOptionsToPackage{silence}{fontspec}
 \usepackage{xeCJK}%设置中文字体
