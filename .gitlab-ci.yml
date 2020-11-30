@@ -25,7 +25,7 @@ build-job:
   stage: build
   script:
   #复制相关资源文件
-    - cp -r /home/jiawen/rst2pdf/rst/latex2pdf/workfile/*  /env/flyleaf/gitlab_runner_build/builds/Yys-HcwQ/0/motor/jiaoyang_motor/ebf_motor_tutorial_stm32f407/_build/latex/
+    - cp -r /home/jiawen/rst2pdf/rst/latex2pdf/workfile/*  /env/gitlab-runner/builds/R76S25aq/0/motor/jiaoyang_motor/ebf_motor_tutorial_stm32f407/_build/latex/
   #使用python脚本处理latex文件
     - python3 latexbuild.py
   #latex文件生成pdf
