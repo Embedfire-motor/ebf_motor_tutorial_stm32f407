@@ -37,7 +37,7 @@ build-job:
 
 deploy-job:
   tags:
-    - rst
+    - pdf
   stage: deploy
   script:
     #修改文件名称
