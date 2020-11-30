@@ -106,7 +106,7 @@ latex_elements = {
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% start %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     \geometry{left=2cm,right=2cm,top=2.5cm,bottom=4cm}%页边距具体数值
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% end %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    
-\RequirePackage{fix-cm}
+
 \PassOptionsToPackage{quiet}{cmap}
 \PassOptionsToPackage{quiet}{Fancyhdr}
 \PassOptionsToPackage{silence}{hyperref}
@@ -117,7 +117,7 @@ latex_elements = {
     \setCJKfamilyfont{sun}{SimSun} %黑体hei
     \newcommand{\hei}{\CJKfamily{hei}} %黑体(Windows自带simhei.ttf,linux上需要安装字体)
     \newcommand{\sun}{\CJKfamily{sun}} %黑体(Windows自带simsun.ttf,linux上需要安装字体)
-
+\xeCJKsetup{SlantFont}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% start %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \setcounter{tocdepth}{2} %目录深度
 \setcounter{secnumdepth}{4} %章节编号深度
