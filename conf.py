@@ -106,6 +106,7 @@ latex_elements = {
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% start %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     \geometry{left=2cm,right=2cm,top=2.5cm,bottom=4cm}%页边距具体数值
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% end %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    
+\RequirePackage{fix-cm}
 \PassOptionsToPackage{quiet}{cmap}
 \PassOptionsToPackage{quiet}{Fancyhdr}
 \PassOptionsToPackage{silence}{hyperref}

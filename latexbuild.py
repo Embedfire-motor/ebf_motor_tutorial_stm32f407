@@ -48,7 +48,7 @@ while line:
                 section = 0
                 chapter_num = chapter_num + 1
                 print("origin line: ",line)
-                line =  line[:line.find('{')+1] + '第' + str(chapter_num) + '章 \quad ' + line[line.find('{')+1:]
+                line =  line[:line.find('{')+1] + '第' + str(chapter_num) + '章 \\quad ' + line[line.find('{')+1:]
                 print("change line: ",line,'\n')            
 
         if line[1:8] == "section": 
