@@ -25,15 +25,15 @@ build-job:
   stage: build
   script:
   #复制相关资源文件
-    - cp -r /home/jiawen/rst2pdf/rst/latex2pdf/workfile/*  /env/gitlab-runner/builds/R76S25aq/0/motor/jiaoyang_motor/ebf_motor_tutorial_stm32f407/_build/latex/
+    - cp -r latexfile/*  _build/latex/  
   #使用python脚本处理latex文件
     - python3 latexbuild.py
   #latex文件生成pdf
     - cd _build/latex/ && latexmk -r latexmkrc -pdf -f -dvi- -ps-  -interaction=nonstopmode
   
   #允许错误运行
-  #allow_failure: true
-  
+  allow_failure: true
+
 
 deploy-job:
   tags:
@@ -48,7 +48,7 @@ deploy-job:
 
 # clear-job:
 #   tags:
-#     - pdf
+#     - sss
 #   stage: clear
 #   script:
 #     #清除缓存文件
