@@ -15,6 +15,11 @@
 
 电机主控板与无刷电机驱动板连接见下表所示。
 
+.. list-table:: 电机与无刷电机驱动板连接（无感模式）
+    :widths: 20 20
+    :header-rows: 1
+    :align: center
+
 .. list-table:: 电机与无刷电机驱动板连接
     :widths: 20 20
     :header-rows: 1

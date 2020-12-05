@@ -70,7 +70,11 @@
    improve_part/ST-FOC-MC_SDK5x-overview
    improve_part/X-CUBE-MCSDK_installation_use
 
+.. toctree::
+   :maxdepth: 1
+   :caption: 电机使用常见问题说明
 
+   motor_direction_use
 
 .. toctree::
    :maxdepth: 1
