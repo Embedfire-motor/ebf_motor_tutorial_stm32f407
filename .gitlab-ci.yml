@@ -37,7 +37,7 @@ build-job:
   #allow_failure: true
 
 
-deploy-job:
+PDF_file:
   tags:
     - pdf
   stage: deploy
