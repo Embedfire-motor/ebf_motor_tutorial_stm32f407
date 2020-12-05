@@ -4,6 +4,8 @@ stages: # 分段
   - deploy
   # - clear
 
+
+  
 cache: # 缓存
   paths:
     - _build
@@ -32,7 +34,7 @@ build-job:
     - cd _build/latex/ && latexmk -r latexmkrc -pdf -f -dvi- -ps-  -interaction=nonstopmode
   
   #允许错误运行
-  allow_failure: true
+  #allow_failure: true
 
 
 deploy-job:
@@ -42,9 +44,14 @@ deploy-job:
   script:
     #修改文件名称
     - python3 latexbuild2.py 
-    #移动文件到指定位置
-    # - cd _build/latex/ 
-    # - cp *.pdf /home/jiawen/rst2pdf/rst/pdf/
+    #移动文件到指定位置 
+    - cp _build/latex/*.pdf ./
+  artifacts:
+    name: 'PDFfile' #下载压缩包文件名
+    paths: #文件路径
+      - ./*.pdf
+    expire_in: 1 day #保存时间
+    when: on_success #仅在job成功后上传
 
 # clear-job:
 #   tags:
