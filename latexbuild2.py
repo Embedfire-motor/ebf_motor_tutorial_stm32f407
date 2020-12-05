@@ -13,7 +13,7 @@ time = datetime.datetime.now().year * 10000 + datetime.datetime.now().month * 10
 if type == 1:
     pdfname = '[野火] ' + name + str(time) + '.pdf'
 else:
-    pdfname = '【野火EmbedFire】《' + name + '》—' + str(time) + '.pdf'
+    pdfname = '[野火EmbedFire]《' + name + '》—' + str(time) + '.pdf'
 
 print(pdfname)
 
