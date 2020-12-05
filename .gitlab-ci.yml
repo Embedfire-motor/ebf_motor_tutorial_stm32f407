@@ -49,7 +49,7 @@ deploy-job:
   artifacts:
     name: 'PDFfile' #下载压缩包文件名
     paths: #文件路径
-      - ./*.pdf
+      - *.pdf
     expire_in: 1 day #保存时间
     when: on_success #仅在job成功后上传
 
