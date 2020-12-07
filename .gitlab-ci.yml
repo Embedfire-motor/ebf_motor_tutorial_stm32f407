@@ -47,13 +47,13 @@ PDF-files:
     - cp _build/latex/*.pdf ./
     #网盘同步，在不同的仓库中都需要修改
     #F103拂晓
-    - find /home/flyleaf/ebf_nas/公司共享/百度云对外发布资料/STM32产品线/STM32电机系列/野火【F103开发板-拂晓】光盘资料/A盘（资料盘）/1-程序源码_教程文档/6-[野火]《电机应用开发实战指南—基于STM32》/ -name "*.pdf" | xargs rm
+    - find /home/flyleaf/ebf_nas/公司共享/百度云对外发布资料/STM32产品线/STM32电机系列/野火【F103开发板-拂晓】光盘资料/A盘（资料盘）/1-程序源码_教程文档/6-[野火]《电机应用开发实战指南—基于STM32》/ -name "*.pdf" -print0 | xargs -0 rm
     - cp _build/latex/*.pdf /home/flyleaf/ebf_nas/公司共享/百度云对外发布资料/STM32产品线/STM32电机系列/野火【F103开发板-拂晓】光盘资料/A盘（资料盘）/1-程序源码_教程文档/6-[野火]《电机应用开发实战指南—基于STM32》/
     #F407骄阳
-    - find /home/flyleaf/ebf_nas/公司共享/百度云对外发布资料/STM32产品线/STM32电机系列/野火【F407开发板-骄阳】光盘资料/A盘（资料盘）/1-程序源码_教程文档/8-[野火]《电机应用开发实战指南—基于STM32》/ -name "*.pdf" | xargs rm
+    - find /home/flyleaf/ebf_nas/公司共享/百度云对外发布资料/STM32产品线/STM32电机系列/野火【F407开发板-骄阳】光盘资料/A盘（资料盘）/1-程序源码_教程文档/8-[野火]《电机应用开发实战指南—基于STM32》/ -name "*.pdf" -print0 | xargs -0 rm
     - cp _build/latex/*.pdf /home/flyleaf/ebf_nas/公司共享/百度云对外发布资料/STM32产品线/STM32电机系列/野火【F407开发板-骄阳】光盘资料/A盘（资料盘）/1-程序源码_教程文档/8-[野火]《电机应用开发实战指南—基于STM32》//
     #H743繁星
-    - find /home/flyleaf/ebf_nas/公司共享/百度云对外发布资料/STM32产品线/STM32电机系列/野火【H743开发板-繁星】光盘资料/A盘（资料盘）/1-程序源码_教程文档/8-[野火]《电机应用开发实战指南—基于STM32》/ -name "*.pdf" | xargs rm
+    - find /home/flyleaf/ebf_nas/公司共享/百度云对外发布资料/STM32产品线/STM32电机系列/野火【H743开发板-繁星】光盘资料/A盘（资料盘）/1-程序源码_教程文档/8-[野火]《电机应用开发实战指南—基于STM32》/ -name "*.pdf" -print0 | xargs -0 rm
     - cp _build/latex/*.pdf /home/flyleaf/ebf_nas/公司共享/百度云对外发布资料/STM32产品线/STM32电机系列/野火【H743开发板-繁星】光盘资料/A盘（资料盘）/1-程序源码_教程文档/8-[野火]《电机应用开发实战指南—基于STM32》/
 
   artifacts:
