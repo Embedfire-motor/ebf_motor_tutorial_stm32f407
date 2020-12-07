@@ -2,7 +2,6 @@ stages: # 分段
   - install
   - build
   - deploy
-  # - clear
 
 
   
@@ -37,7 +36,7 @@ build-job:
   #allow_failure: true
 
 
-PDF_file:
+PDF-files:
   tags:
     - pdf
   stage: deploy
@@ -48,20 +47,18 @@ PDF_file:
     - cp _build/latex/*.pdf ./
     #网盘同步，在不同的仓库中都需要修改
     #F103拂晓
-    - cd /home/flyleaf/ebf_nas/公司共享/百度云对外发布资料/STM32产品线/STM32电机系列/野火【F103开发板-拂晓】光盘资料/A盘（资料盘）/1-程序源码_教程文档/6-[野火]《电机应用开发实战指南—基于STM32》/
-    - rm -f *.pdf #不知道为什么，绝对路径无法删除
+    - find /home/flyleaf/ebf_nas/公司共享/百度云对外发布资料/STM32产品线/STM32电机系列/野火【F103开发板-拂晓】光盘资料/A盘（资料盘）/1-程序源码_教程文档/6-[野火]《电机应用开发实战指南—基于STM32》/ -name "*.pdf" | xargs rm
     - cp _build/latex/*.pdf /home/flyleaf/ebf_nas/公司共享/百度云对外发布资料/STM32产品线/STM32电机系列/野火【F103开发板-拂晓】光盘资料/A盘（资料盘）/1-程序源码_教程文档/6-[野火]《电机应用开发实战指南—基于STM32》/
+    #F407骄阳
+    - find /home/flyleaf/ebf_nas/公司共享/百度云对外发布资料/STM32产品线/STM32电机系列/野火【F407开发板-骄阳】光盘资料/A盘（资料盘）/1-程序源码_教程文档/8-[野火]《电机应用开发实战指南—基于STM32》/ -name "*.pdf" | xargs rm
+    - cp _build/latex/*.pdf /home/flyleaf/ebf_nas/公司共享/百度云对外发布资料/STM32产品线/STM32电机系列/野火【F407开发板-骄阳】光盘资料/A盘（资料盘）/1-程序源码_教程文档/8-[野火]《电机应用开发实战指南—基于STM32》//
+    #H743繁星
+    - find /home/flyleaf/ebf_nas/公司共享/百度云对外发布资料/STM32产品线/STM32电机系列/野火【H743开发板-繁星】光盘资料/A盘（资料盘）/1-程序源码_教程文档/8-[野火]《电机应用开发实战指南—基于STM32》/ -name "*.pdf" | xargs rm
+    - cp _build/latex/*.pdf /home/flyleaf/ebf_nas/公司共享/百度云对外发布资料/STM32产品线/STM32电机系列/野火【H743开发板-繁星】光盘资料/A盘（资料盘）/1-程序源码_教程文档/8-[野火]《电机应用开发实战指南—基于STM32》/
+
   artifacts:
     name: 'PDFfile' #下载压缩包文件名
     paths: #文件路径
       - ./*.pdf
     expire_in: 1 day #保存时间
     when: on_success #仅在job成功后上传
-
-# clear-job:
-#   tags:
-#     - sss
-#   stage: clear
-#   script:
-#     #清除缓存文件
-#     - make clean
