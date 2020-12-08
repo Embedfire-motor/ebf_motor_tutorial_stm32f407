@@ -1,6 +1,6 @@
 variables:
   #要上传的PDF仓库地址，注意格式，取http:// 后的部分
-  GIT_ADDRESS: EmbedfireNAS:30000/learning/git/autoupdate-test.git
+  GIT_ADDRESS: EmbedfireNAS:30000/motor/jiaoyang_motor/ebf_motor_tutorial_stm32f407_pdf.git
   #gitlab 邮箱
   GIT_USEREMAIL: hjw0415@outlook.com
   #gitlab 用户名
