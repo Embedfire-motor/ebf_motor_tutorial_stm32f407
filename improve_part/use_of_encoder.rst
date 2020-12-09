@@ -131,13 +131,13 @@ TIM_Base_InitTypeDef
 
    typedef struct
    {
-     uint32_t Prescaler;            //预分频器
-     uint32_t CounterMode;          //计数模式
-     uint32_t Period;               //定时器周期
-     uint32_t ClockDivision;        //时钟分频
-     uint32_t RepetitionCounter;    //重复计算器
-     uint32_t AutoReloadPreload;    //自动重载值
-    }TIM_Base_InitTypeDef;
+    uint32_t Prescaler;            //预分频器
+    uint32_t CounterMode;          //计数模式
+    uint32_t Period;               //定时器周期
+    uint32_t ClockDivision;        //时钟分频
+    uint32_t RepetitionCounter;    //重复计算器
+    uint32_t AutoReloadPreload;    //自动重载值
+   }TIM_Base_InitTypeDef;
 
 1. Prescaler：定时器预分频器设置；
 #. CounterMode：定时器计数方式；
