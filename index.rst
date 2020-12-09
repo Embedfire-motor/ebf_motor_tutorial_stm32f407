@@ -74,7 +74,7 @@
    :maxdepth: 1
    :caption: 电机使用常见问题说明
 
-   motor_direction_use
+   zero_part/motor_direction_use
 
 .. toctree::
    :maxdepth: 1
