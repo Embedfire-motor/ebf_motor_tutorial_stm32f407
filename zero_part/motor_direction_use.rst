@@ -178,7 +178,7 @@ Q: 为什么打开FOC相关.ioc文件失败？
 
 打开一个*.stmcx文件，点击生成代码的按钮，然后点击UPDATA按钮，更新代码。
 
-.. image:: media/常见问题/打开.ioc文件失败.jpg
+.. image:: ../media/常见问题/打开.ioc文件失败.jpg
    :align: center
    :alt: 打开.ioc文件失败
 
