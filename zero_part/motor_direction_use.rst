@@ -12,7 +12,7 @@ Q:  我应该在那里下载到最新的资料？
 
 大学堂具体目录见：
 
-.. image:: media/常见问题/电机资料下载链接.png
+.. image:: ../media/常见问题/电机资料下载链接.png
    :align: center
    :alt: 电机资料下载链接
 
@@ -85,7 +85,7 @@ Q: 无刷驱动板上的LED分别代表什么意思？
 
 无刷驱动板上共有三个LED灯
 
-.. image:: media/常见问题/无刷驱动板LED说明.jpg
+.. image:: ../media/常见问题/无刷驱动板LED说明.jpg
    :align: center
    :alt: 无刷驱动板LED说明
 
@@ -96,7 +96,7 @@ Q: 无刷驱动板上的LED分别代表什么意思？
 
 所以正常运行时，是只有两个灯亮的，如下图
 
-.. image:: media/常见问题/无刷驱动板正常LED说明.png
+.. image:: ../media/常见问题/无刷驱动板正常LED说明.png
    :align: center
    :alt: 无刷驱动板正常LED说明
 
@@ -108,7 +108,7 @@ Q： 板载的许多隔离芯片对通信有什么影响？
 只有标注的隔离输出与隔离输入接口使用了低速光耦隔离，其他隔离都是高速隔离，通信速度达10M。
 低速光耦以骄阳开发板举例子见图如下:
 
-.. image:: media/常见问题/隔离说明.jpg
+.. image:: ../media/常见问题/隔离说明.jpg
    :align: center
    :alt: 隔离说明
 
