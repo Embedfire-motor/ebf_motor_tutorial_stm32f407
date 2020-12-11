@@ -7,12 +7,18 @@ variables:
   GIT_USERNAME: hejiawen
   #GIT_PASSWORD在CI/CD->Variables中定义变量，警告，不可在本文件中定义明文密码
   #GIT_PASSWORD
-
+  #OSS地址
+  OSS_URL: oss://ebf-doc/motor/motor_tutorial/
+  #NAS地址 数量不匹配需要删改PDF-files任务中的内容
+  NAS_URL1: /home/flyleaf/ebf_nas/公司共享/百度云对外发布资料/STM32产品线/STM32电机系列/野火【F103开发板-拂晓】光盘资料/A盘（资料盘）/1-程序源码_教程文档/6-[野火]《电机应用开发实战指南—基于STM32》/
+  NAS_URL2: /home/flyleaf/ebf_nas/公司共享/百度云对外发布资料/STM32产品线/STM32电机系列/野火【F407开发板-骄阳】光盘资料/A盘（资料盘）/1-程序源码_教程文档/8-[野火]《电机应用开发实战指南—基于STM32》/
+  NAS_URL3: /home/flyleaf/ebf_nas/公司共享/百度云对外发布资料/STM32产品线/STM32电机系列/野火【H743开发板-繁星】光盘资料/A盘（资料盘）/1-程序源码_教程文档/8-[野火]《电机应用开发实战指南—基于STM32》/
 
 stages: # 分段
   - install
   - build
-  - deploy
+  - html
+  - latex
   
 cache: # 缓存
   paths:
@@ -25,6 +31,8 @@ install-job:
   script:
     #删除以前的缓存文件
     - make clean
+    #rst转html
+    - make html
     #rst转latex文件
     #- sphinx-build -b latex -D language=en -d _build/doctrees . _build/latex
     - make latex
@@ -43,10 +51,18 @@ build-job:
   #允许带错误运行下一步
   #allow_failure: true
 
+html-job:
+  tags:
+    - pdf
+  stage: html
+  script:
+    #同步到doc.embedfire.com
+    - ossutil64 cp -r _build/html/ $OSS_URL --update
+
 PDF-files:
   tags:
     - pdf
-  stage: deploy
+  stage: latex
   script:
     #修改文件名称
     - python3 latexbuild2.py 
@@ -55,14 +71,14 @@ PDF-files:
 
     #网盘同步，在不同的仓库中都需要修改
     #F103拂晓
-    - find /home/flyleaf/ebf_nas/公司共享/百度云对外发布资料/STM32产品线/STM32电机系列/野火【F103开发板-拂晓】光盘资料/A盘（资料盘）/1-程序源码_教程文档/6-[野火]《电机应用开发实战指南—基于STM32》/ -name "*.pdf" -print0 | xargs -0 rm
-    - cp _build/latex/*.pdf /home/flyleaf/ebf_nas/公司共享/百度云对外发布资料/STM32产品线/STM32电机系列/野火【F103开发板-拂晓】光盘资料/A盘（资料盘）/1-程序源码_教程文档/6-[野火]《电机应用开发实战指南—基于STM32》/
+    - find $NAS_URL1 -name "*.pdf" -print0 | xargs -0 rm -f
+    - cp _build/latex/*.pdf $NAS_URL1
     #F407骄阳
-    - find /home/flyleaf/ebf_nas/公司共享/百度云对外发布资料/STM32产品线/STM32电机系列/野火【F407开发板-骄阳】光盘资料/A盘（资料盘）/1-程序源码_教程文档/8-[野火]《电机应用开发实战指南—基于STM32》/ -name "*.pdf" -print0 | xargs -0 rm
-    - cp _build/latex/*.pdf /home/flyleaf/ebf_nas/公司共享/百度云对外发布资料/STM32产品线/STM32电机系列/野火【F407开发板-骄阳】光盘资料/A盘（资料盘）/1-程序源码_教程文档/8-[野火]《电机应用开发实战指南—基于STM32》//
+    - find $NAS_URL2 -name "*.pdf" -print0 | xargs -0 rm -f
+    - cp _build/latex/*.pdf $NAS_URL2
     #H743繁星
-    - find /home/flyleaf/ebf_nas/公司共享/百度云对外发布资料/STM32产品线/STM32电机系列/野火【H743开发板-繁星】光盘资料/A盘（资料盘）/1-程序源码_教程文档/8-[野火]《电机应用开发实战指南—基于STM32》/ -name "*.pdf" -print0 | xargs -0 rm
-    - cp _build/latex/*.pdf /home/flyleaf/ebf_nas/公司共享/百度云对外发布资料/STM32产品线/STM32电机系列/野火【H743开发板-繁星】光盘资料/A盘（资料盘）/1-程序源码_教程文档/8-[野火]《电机应用开发实战指南—基于STM32》/
+    - find $NAS_URL3 -name "*.pdf" -print0 | xargs -0 rm -f
+    - cp _build/latex/*.pdf $NAS_URL3
 
     #上传到gitlab PDF文档仓库
     #克隆仓库
