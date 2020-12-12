@@ -105,7 +105,7 @@ Workbench→CubeMx工程→电机库代码（芯片外设库+电机控制库+电
 
    
 .. list-table:: 电机控制API说明
-    :widths: 20 20 20 20
+    :widths: 32 13 15 20
     :header-rows: 1
     :align: center
 
@@ -135,7 +135,7 @@ Workbench→CubeMx工程→电机库代码（芯片外设库+电机控制库+电
       - 设定 Iq， Id 参考
     * - MC_GetCommandStateMotor1
       - void
-      - MCI_CommandState_t
+      - MCI_Command State_t
       - 返回指令执行状态
     * - MC_StopSpeedRampMotor1
       - void
